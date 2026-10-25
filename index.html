@@ -1,0 +1,1918 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KDP Pricing Planner</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --surface: #ffffff;
+    --surface-2: #f0eee9;
+    --border: #dedad2;
+    --text: #1d1c1a;
+    --muted: #65615a;
+    --accent: #2f5fb3;
+    --accent-2: #b5651d;
+    --accent-3: #2e7d5b;
+    --red: #b3261e;
+    --red-bg: #fbe9e7;
+    --amber: #8a5a00;
+    --amber-bg: #fff3d6;
+    --green-band: rgba(46, 125, 91, 0.10);
+    --red-band: rgba(179, 38, 30, 0.12);
+    --grid: rgba(0, 0, 0, 0.08);
+    --tag-bg: #ece6f7;
+    --tag-text: #5b3f99;
+    --slot1: #2f5fb3;
+    --slot2: #c4610f;
+    --slot3: #8a3fb8;
+    --earn: #2e7d5b;
+    --cost: #b5462e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161614;
+      --surface: #201f1d;
+      --surface-2: #2a2926;
+      --border: #3a3834;
+      --text: #ecebe7;
+      --muted: #a29e96;
+      --accent: #7aa7f0;
+      --accent-2: #e59a55;
+      --accent-3: #5fc496;
+      --red: #ff8a80;
+      --red-bg: #3d1f1c;
+      --amber: #ffcc66;
+      --amber-bg: #3a2f14;
+      --green-band: rgba(95, 196, 150, 0.12);
+      --red-band: rgba(255, 138, 128, 0.14);
+      --grid: rgba(255, 255, 255, 0.09);
+      --tag-bg: #352a4d;
+      --tag-text: #cbb8f2;
+      --slot1: #7aa7f0;
+      --slot2: #f0a35e;
+      --slot3: #c99af0;
+      --earn: #5fc496;
+      --cost: #f08a6e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  a { color: var(--accent); }
+  header { padding: 20px 24px 8px; }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 12px 24px 24px;
+    align-items: start;
+  }
+  /* Case editor: a modal opened from the summary's case headings. */
+  .case-dialog { width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 40px); padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .case-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+  .dlg-inner { padding: 14px 16px 16px; }
+  .dlg-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .dlg-bar h2 { margin: 0; }
+  .dlg-bar .note { margin: 0; }
+  .dlg-bar button { margin-left: auto; }
+  .dlg-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; align-items: start; }
+  .dlg-body .case-bar { grid-column: 1 / -1; margin-bottom: 0; }
+  .dlg-body details.panel { margin-bottom: 0; }
+  /* Collapsible page sections use the same disclosure arrow as the input panels. */
+  details.section > summary { cursor: pointer; display: list-item; margin: 0 -8px 10px; padding: 4px 8px; border-radius: 6px; user-select: none; }
+  details.section > summary:hover { background: var(--surface-2); }
+  details.section > summary h2 { display: inline; margin: 0; }
+  /* One column per case for warnings and guidance. */
+  .case-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .case-col-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 3px solid var(--case); }
+  .case-col-head .swatch { background: var(--case); width: 9px; height: 9px; border-radius: 2px; }
+  .case-col-head .nm { font-weight: 400; color: var(--muted); }
+  .case-col .chips { flex-direction: column; align-items: stretch; }
+  .general-head { font-size: 13px; font-weight: 650; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 3px solid var(--border); }
+  @media (max-width: 760px) { .case-cols { grid-template-columns: minmax(0, 1fr); } }
+  details.panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+  }
+  details.panel > summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    font-weight: 600;
+    list-style-position: inside;
+  }
+  .panel-body { padding: 2px 14px 12px; }
+  .note { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  label.field { display: block; margin: 8px 0; }
+  label.field > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  input[type=number], input[type=text], select {
+    width: 100%;
+    min-width: 0;
+    text-overflow: ellipsis;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+  }
+  input:disabled { opacity: 0.45; }
+  label.check { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
+  .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: end; }
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 1px 6px;
+    border-radius: 99px;
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    vertical-align: middle;
+    cursor: help;
+  }
+  a.srclink { color: inherit; text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
+  a.srclink:hover { color: var(--text); text-decoration-style: solid; }
+  a.srclink:focus { outline: none; }
+  a.srclink:focus-visible { text-decoration-color: var(--text); text-decoration-style: solid; }
+  #tip { position: fixed; z-index: 50; max-width: 280px; padding: 8px 10px; border-radius: 6px; background: var(--text); color: var(--bg); font-size: 12px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.18); pointer-events: none; }
+  #tip .tip-src { opacity: 0.7; margin-top: 4px; }
+  .fmt-icon { display: inline-flex; vertical-align: -3px; margin-right: 5px; }
+  .fmt-icon svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  /* Scrubbing: drag the grip inside a number field left or right, like Photoshop. */
+  .scrub-wrap { position: relative; display: block; }
+  .scrub-wrap input { padding-right: 32px; }
+  input.scrubbable { appearance: textfield; -moz-appearance: textfield; }
+  input.scrubbable::-webkit-inner-spin-button, input.scrubbable::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .scrub-grip { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 24px; height: 22px; display: grid; place-items: center; border-radius: 4px; color: var(--muted); cursor: ew-resize; touch-action: none; }
+  .scrub-grip:hover, body.scrubbing .scrub-grip { background: var(--border); color: var(--text); }
+  .scrub-grip svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .scrub-wrap input.at-threshold { border-color: var(--earn); box-shadow: inset 0 0 0 1px var(--earn); color: var(--earn); font-weight: 650; }
+  .threshold-pill { position: absolute; right: 32px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 650; padding: 1px 6px; border-radius: 99px; background: var(--earn); color: var(--surface); white-space: nowrap; }
+  .threshold-pill[hidden] { display: none; }
+  .threshold-pill.floor { background: var(--muted); }
+  .scrub-wrap input.at-floor { border-color: var(--muted); box-shadow: inset 0 0 0 1px var(--muted); font-weight: 650; }
+  body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: none; }
+  /* Case tabs at the top of the case editor. Each case's colour matches its chart colour. */
+  .case-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .case-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--border); }
+  .case-tab { border: 0; border-radius: 0; border-bottom: 3px solid transparent; background: var(--surface-2); color: var(--muted); padding: 8px 8px 5px; text-align: left; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .case-tab + .case-tab { border-left: 1px solid var(--border); }
+  .case-tab:hover { color: var(--text); }
+  .case-tab.active { background: var(--surface); color: var(--text); border-bottom-color: var(--case); }
+  .case-num { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .case-num .swatch { background: var(--case); width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .case-sub { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .case-panel { padding: 2px 14px 12px; }
+  .case-actions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+  .case-tools { display: flex; gap: 6px; margin-top: 8px; }
+  .case-tools button:disabled { opacity: 0.4; cursor: default; }
+  .case-tools #resetCase { margin-left: auto; }
+  /* HTML chart legends: one row for a single case, one column per case when comparing. */
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin-bottom: 6px; font-size: 12px; }
+  .legend.grouped { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px 12px; }
+  .legend-col { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 16px; }
+  .legend.grouped .legend-col { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; }
+  .legend-title { font-weight: 650; }
+  .legend-item { background: none; border: 0; padding: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+  .legend-item.off { opacity: 0.45; text-decoration: line-through; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex: none; }
+  .legend-swatch.dashed { border: 1.5px dashed; background: transparent; }
+  table.scen tr.group td { background: var(--surface-2); color: var(--muted); font-weight: 600; text-align: left; }
+  .compare-bar input[type=checkbox] { margin: 0; }
+  .info { cursor: help; color: var(--muted); border-bottom: 1px dotted var(--muted); }
+  main section { margin-bottom: 22px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  /* Summary: one column per case, sections stacked with a rotated label on the left. */
+  /* Summary: a header block plus one block per section (Costs, Earnings, Limits, Warnings).
+     Every block is its own table with the same fixed column widths, so the columns line up across the gaps. */
+  #summarySection { max-width: var(--summary-max, 900px); margin-left: auto; margin-right: auto; }
+  .sum-note { margin: -4px 0 8px; }
+  .inline-select { width: auto; display: inline-block; padding: 1px 4px; font-size: 12px; }
+  table.sum th.case .base-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 0 5px; margin-right: 6px; vertical-align: 1px; }
+  .sum-wrap { overflow-x: auto; }
+  .sum-wrap > * { min-width: 600px; }
+  .sum-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .sum-block + .sum-block { margin-top: 8px; }
+  table.sum { border-collapse: collapse; width: 100%; table-layout: fixed; font-variant-numeric: tabular-nums; }
+  table.sum col.c-sec { width: 30px; }
+  table.sum col.c-label { width: 150px; }
+  table.sum th, table.sum td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: right; }
+  table.sum tr:last-child > * { border-bottom: 0; }
+  table.sum .rl { text-align: left; font-size: 13px; font-weight: 650; color: var(--text); line-height: 1.3; }
+  table.sum .rl .fmt-icon { color: var(--muted); }
+  table.sum tr.minor .rl { padding-left: 22px; font-size: 12px; font-weight: 400; color: var(--muted); }
+  table.sum th.sec { padding: 8px 4px; text-align: center; vertical-align: middle; background: var(--surface-2); border-right: 1px solid var(--border); border-bottom: 0; }
+  table.sum th.sec span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.08em; color: var(--group); white-space: nowrap; }
+  table.sum.earn { --group: var(--earn); }
+  table.sum.cost { --group: var(--cost); }
+  table.sum.limit { --group: var(--muted); }
+  table.sum.warn { --group: var(--amber); }
+  table.sum.warn td { text-align: left; min-height: 90px; }
+  table.sum.warn tr { height: 96px; }
+  /* Warnings in the summary are plain coloured text, not boxed chips, and they wrap. */
+  table.sum.warn td > div:first-child { white-space: normal; }
+  table.sum.warn .chips { flex-direction: column; align-items: stretch; gap: 6px; }
+  table.sum.warn .chip { font-size: 12px; line-height: 1.4; padding: 0 0 0 12px; border: 0; border-radius: 0; background: none; position: relative; }
+  table.sum.warn .chip::before { content: ""; position: absolute; left: 0; top: 0.5em; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  table.sum.warn .chip.ok { color: var(--muted); padding-left: 0; }
+  table.sum.warn .chip.ok::before { display: none; }
+  table.sum .v { font-size: 16px; font-weight: 650; }
+  table.sum.earn .v, table.sum.cost .v { color: var(--group); }
+  table.sum tr.minor .v { font-size: 13px; font-weight: 500; color: var(--text); }
+  table.sum tr.net .v { font-size: 16px; }
+  table.sum .v.neg { color: var(--red) !important; }
+  table.sum .s { font-size: 11px; color: var(--muted); line-height: 1.35; }
+  table.sum td > div:first-child { white-space: nowrap; }
+  table.sum .d { font-size: 11px; font-weight: 600; margin-right: 6px; }
+  table.sum .d.good { color: var(--earn); }
+  table.sum .d.bad { color: var(--red); }
+  table.sum .d.neutral { color: var(--muted); }
+  table.sum th.case { border-top: 3px solid var(--case); cursor: pointer; font-size: 13px; }
+  table.sum th.case .nm { display: block; font-size: 11px; font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.sum th.case:hover { background: var(--surface-2); }
+  table.sum th.case .edit { color: var(--muted); font-weight: 400; }
+  table.sum th.case:hover .edit { color: var(--text); }
+  table.sum .active { background: color-mix(in srgb, var(--case) 7%, transparent); }
+  /* Header with the settings button */
+  header { display: flex; align-items: flex-start; gap: 16px; }
+  header .head-text { flex: 1; }
+  .settings-dialog { width: min(440px, calc(100vw - 32px)); }
+  .settings-dialog .field select { width: 100%; }
+  /* Chart settings menu */
+  .menu { position: relative; margin-left: auto; }
+  .menu > summary { list-style: none; cursor: pointer; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text); }
+  .menu > summary::-webkit-details-marker { display: none; }
+  .menu-panel { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 240px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; box-shadow: 0 6px 20px rgba(0,0,0,.15); }
+  .menu-panel label { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 13px; }
+  .menu-panel .note { margin: 4px 0 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 6px 10px; border-radius: 8px; font-size: 13px; border: 1px solid transparent; }
+  .chip.red { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+  .chip.amber { background: var(--amber-bg); color: var(--amber); border-color: var(--amber); }
+  .chip.ok { background: var(--surface); color: var(--muted); border-color: var(--border); }
+  /* Newspaper columns: 2 by default, 3 on wide windows, 1 when narrow (see media queries). */
+  ul.guidance { margin: 0; padding-left: 20px; }
+  ul.guidance.general { column-count: 2; column-gap: 40px; }
+  ul.guidance li { margin-bottom: 10px; break-inside: avoid; }
+  @media (min-width: 1450px) { ul.guidance.general { column-count: 3; } }
+  @media (max-width: 640px) { ul.guidance.general { column-count: 1; } }
+  ul.guidance li::marker { color: var(--accent); }
+  ul.guidance li.warn::marker { color: var(--amber); }
+  ul.guidance .t { font-weight: 650; }
+  ul.guidance strong { font-weight: 650; }
+  ul.guidance .key { color: var(--accent); font-weight: 650; font-variant-numeric: tabular-nums; }
+  ul.guidance li.warn .key { color: var(--amber); }
+  ul.guidance .tip-action { margin: 2px 4px 2px 0; }
+  ul.guidance .meta { font-size: 12px; color: var(--muted); }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; }
+  .chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .chart-box h3 { font-size: 13px; margin: 0 0 6px; }
+  .chart-wrap { position: relative; height: 260px; }
+  .compare-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 10px; }
+  .compare-bar .note { margin: 0; }
+  .compare-bar .slot { display: flex; align-items: center; gap: 6px; }
+  .compare-bar select { width: auto; max-width: 220px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .chart-fallback { color: var(--muted); font-size: 12px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .toolbar input { max-width: 260px; }
+  button {
+    font: inherit;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.small { padding: 2px 8px; font-size: 12px; }
+  .table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+  table.scen { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.scen th, table.scen td { padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right; }
+  table.scen th:first-child, table.scen td:first-child { text-align: left; }
+  table.scen th { background: var(--surface-2); font-weight: 600; }
+  .rules-list { font-size: 12px; }
+  .rules-list td { padding: 3px 8px 3px 0; vertical-align: top; }
+  footer { padding: 16px 24px 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; }
+    header, footer { padding-left: 16px; padding-right: 16px; }
+    .charts { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 480px) {
+    header h1 { font-size: 19px; }
+    .chart-wrap { height: 230px; }
+    .toolbar input { max-width: none; flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-text">
+    <h1>KDP Pricing Planner</h1>
+    <p>Paperback + Kindle pricing for a short nonfiction book on Amazon.com. Every number updates as you type.</p>
+  </div>
+  <button id="settingsBtn" type="button">⚙ Settings</button>
+</header>
+
+<dialog id="settingsDialog" class="case-dialog settings-dialog" aria-label="Settings">
+  <div class="dlg-inner">
+    <div class="dlg-bar">
+      <h2>Settings</h2>
+      <button class="primary" id="settingsDone" type="button">Done</button>
+    </div>
+    <label class="field"><span>Summary width</span>
+      <select id="summaryWidth">
+        <option value="900px">Compact (900 px)</option>
+        <option value="1200px">Medium (1200 px)</option>
+        <option value="none">Full window width</option>
+      </select></label>
+    <p class="note">Limits how wide the summary table gets, so the numbers stay close together on big screens.</p>
+  </div>
+</dialog>
+
+<div class="layout">
+  <dialog id="caseDialog" class="case-dialog" aria-label="Edit cases">
+   <div class="dlg-inner">
+    <div class="dlg-bar">
+      <h2>Edit cases</h2>
+      <span class="note">Changes apply as you type. Press Esc or Done to close.</span>
+      <button class="primary" id="dlgDone" type="button">Done</button>
+    </div>
+    <div class="dlg-body">
+    <div class="case-bar">
+      <div class="case-tabs" role="tablist" id="caseTabs" aria-label="Cases"></div>
+      <div class="case-panel">
+        <label class="field"><span>Case name</span>
+          <input type="text" id="caseName" maxlength="40"></label>
+        <div class="case-actions">
+          <button id="saveScen" title="Keep a copy of this case's inputs under its name">Save as scenario</button>
+          <select id="loadScen" aria-label="Load a saved scenario into this case"></select>
+        </div>
+        <div class="case-tools">
+          <button class="small" id="undoBtn" type="button">↶ Undo</button>
+          <button class="small" id="redoBtn" type="button">↷ Redo</button>
+          <button class="small" id="resetCase" type="button">Reset to default</button>
+        </div>
+        <p class="note" id="storageNote" style="margin:6px 0 0" hidden></p>
+      </div>
+    </div>
+
+    <details class="panel" open>
+      <summary>Book</summary>
+      <div class="panel-body">
+        <label class="field"><span>Page count <span class="tag" id="tagRoundEven" title="">unverified</span></span>
+          <input type="number" id="pages" min="1" max="828" step="1" value="130"></label>
+        <label class="field"><span>Trim size class</span>
+          <select id="trim">
+            <option value="regular">Regular, up to 6.12″ × 9″ (e.g. 6×9)</option>
+            <option value="large">Large, over 6.12″ wide or 9″ tall</option>
+          </select></label>
+        <label class="field"><span>Paper (black ink)</span>
+          <select id="paper">
+            <option value="white">White</option>
+            <option value="cream">Cream</option>
+          </select></label>
+        <p class="note" id="spineOut"></p>
+        <div class="row2">
+          <label class="field"><span>eBook file size (MB)</span>
+            <input type="number" id="fileMB" min="0" step="0.1" value="1"></label>
+          <label class="field"><span>Delivery fee per MB ($)</span>
+            <input type="number" id="deliveryPerMB" min="0" step="0.01" value="0.15"></label>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" open>
+      <summary>Prices</summary>
+      <div class="panel-body">
+        <div class="row2">
+          <label class="field"><span><i data-fmt="paperback"></i>Paperback price ($)</span>
+            <input type="number" id="pbPrice" min="0" step="0.01" value="7.95"></label>
+          <label class="field"><span><i data-fmt="ebook"></i>eBook price ($)</span>
+            <input type="number" id="ebPrice" min="0" step="0.01" value="3.95"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="ed"> Expanded Distribution (bookstores, libraries)</label>
+        <p class="note">Optional launch price for the eBook. Leave blank for none.</p>
+        <div class="row2">
+          <label class="field"><span>Launch eBook price ($)</span>
+            <input type="number" id="launchPrice" min="0" step="0.01" placeholder="none"></label>
+          <label class="field"><span>Launch length (days)</span>
+            <input type="number" id="launchDays" min="0" step="1" placeholder="0"></label>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" open>
+      <summary>Sales estimates</summary>
+      <div class="panel-body">
+        <p class="note">These are guesses. Use them to compare scenarios, not to predict income.</p>
+        <p class="note" style="margin-bottom:0"><i data-fmt="paperback"></i>Paperback units per month</p>
+        <div class="row2">
+          <label class="field"><span>On Amazon</span>
+            <input type="number" id="unitsPbAmazon" min="0" step="1" value="20"></label>
+          <label class="field"><span>Expanded Distribution</span>
+            <input type="number" id="unitsPbEd" min="0" step="1" value="3"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span><i data-fmt="ebook"></i>eBook units / month</span>
+            <input type="number" id="unitsEb" min="0" step="1" value="30"></label>
+          <label class="field"><span>Months to project</span>
+            <input type="number" id="months" min="1" max="120" step="1" value="12"></label>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" open>
+      <summary>Author copies</summary>
+      <div class="panel-body">
+        <div class="row2">
+          <label class="field"><span>Quantity</span>
+            <input type="number" id="authorQty" min="0" step="1" value="100"></label>
+          <label class="field"><span>Order shipping ($)</span>
+            <input type="number" id="authorShipTotal" min="0" step="0.01" placeholder="your estimate"></label>
+        </div>
+      </div>
+    </details>
+    </div>
+   </div>
+  </dialog>
+
+  <main>
+    <section id="summarySection">
+      <h2>Summary</h2>
+      <p class="note sum-note">Small figures show the difference from
+        <select id="baselineCase" class="inline-select" aria-label="Case to compare against"><option value="0">Case 1</option><option value="1">Case 2</option><option value="2">Case 3</option></select>.
+        Click a case's heading to edit its inputs.</p>
+      <div class="sum-wrap" id="summary"></div>
+    </section>
+
+    <section>
+      <h2>Charts</h2>
+      <div class="compare-bar" id="compareBar"></div>
+      <div class="charts">
+        <div class="chart-box" data-chart="chartPb"><h3><i data-fmt="paperback"></i>Paperback royalty vs list price</h3><div class="legend"></div><div class="chart-wrap"><canvas id="chartPb"></canvas></div></div>
+        <div class="chart-box" data-chart="chartEb"><h3><i data-fmt="ebook"></i>eBook royalty vs list price</h3><div class="legend"></div><div class="chart-wrap"><canvas id="chartEb"></canvas></div></div>
+        <div class="chart-box" data-chart="chartPages"><h3>Print cost and minimum price vs page count</h3><div class="legend"></div><div class="chart-wrap"><canvas id="chartPages"></canvas></div></div>
+        <div class="chart-box" data-chart="chartScen"><h3>Projected earnings: cases and saved scenarios</h3><div class="chart-wrap"><canvas id="chartScen"></canvas></div></div>
+      </div>
+      <p class="chart-fallback" id="chartFallback" hidden>Charts need Chart.js from cdnjs.cloudflare.com, which didn't load. Everything else still works.</p>
+    </section>
+
+    <section>
+      <details class="section" id="guideSec" open>
+        <summary><h2>Guidance</h2></summary>
+        <div class="case-cols" id="guidance"></div>
+        <div class="general-head">For every case</div>
+        <ul class="guidance general" id="guidanceGeneral"></ul>
+      </details>
+    </section>
+
+    <section>
+      <h2>Cases and saved scenarios</h2>
+      <div class="toolbar">
+        <button id="exportCsv">Export CSV</button>
+        <span class="note" style="margin:0">Save a case as a scenario from the case editor (click a case heading in the summary). Load puts a scenario into the case you last edited.</span>
+      </div>
+      <div class="table-scroll"><table class="scen" id="scenTable"></table></div>
+    </section>
+
+    <section>
+      <details class="panel">
+        <summary>KDP rules used (sources and verification dates)</summary>
+        <div class="panel-body"><table class="rules-list" id="rulesList"></table></div>
+      </details>
+    </section>
+  </main>
+</div>
+
+<div id="tip" role="tooltip" hidden></div>
+
+<footer>
+  Planning tool only. KDP rates change; confirm in KDP's own royalty calculator before publishing.
+  KDP Help:
+  <a href="https://kdp.amazon.com/en_US/help/topic/G201834330" target="_blank" rel="noopener">Paperback royalty</a> ·
+  <a href="https://kdp.amazon.com/en_US/help/topic/G201834340" target="_blank" rel="noopener">Printing cost</a> ·
+  <a href="https://kdp.amazon.com/en_US/help/topic/G200644210" target="_blank" rel="noopener">eBook royalties</a> ·
+  <a href="https://kdp.amazon.com/en_US/help/topic/G200634560" target="_blank" rel="noopener">eBook list price requirements</a> ·
+  <a href="https://kdp.amazon.com/en_US/help/topic/GSQF43YAMUPFTMSP" target="_blank" rel="noopener">Printing cost &amp; royalty calculator</a>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+'use strict';
+
+/* ============================================================
+   KDP_RULES: every rate and threshold the planner uses.
+   Amazon.com marketplace, USD. Update values here when KDP changes them.
+   `unverified: true` puts an "unverified" tag on the value in the UI.
+   ============================================================ */
+const VERIFIED = '2026-10-24';
+const SRC = {
+  printCost:   'https://kdp.amazon.com/en_US/help/topic/G201834340',
+  pbRoyalty:   'https://kdp.amazon.com/en_US/help/topic/G201834330',
+  printPricing:'https://kdp.amazon.com/en_US/help/topic/G8BKPU9AGVZSF9QF',
+  expanded:    'https://kdp.amazon.com/en_US/help/topic/GQTT4W3T5AYK7L45',
+  ebRoyalty:   'https://kdp.amazon.com/en_US/help/topic/G200644210',
+  ebPriceReq:  'https://kdp.amazon.com/en_US/help/topic/G200634560',
+  ebPricing:   'https://kdp.amazon.com/help/topic/G200634500',
+  spine:       'https://kdp.amazon.com/en_US/help/topic/G201953020',
+  authorShip:  'https://kdp.amazon.com/en_US/help/topic/GG6GRS7TKXVG6AGW',
+  vappingoPrint: 'https://www.vappingo.com/word-blog/?p=11886',
+  cambric:     'https://cambric.pub/guides/kdp-printing-cost-guide/',
+};
+
+const KDP_RULES = {
+  printMinPages:       { value: 24,    label: 'Minimum paperback page count', source: SRC.printCost, verified: VERIFIED },
+  printMaxPages:       { value: 828,   label: 'Maximum page count in the black-ink cost table', source: SRC.printCost, verified: VERIFIED },
+  printFlatMaxPages:   { value: 110,   label: 'Flat print fee applies up to this many pages', source: SRC.printCost, verified: VERIFIED,
+                         note: 'KDP lists 110 pages in both the flat and per-page rows. This tool uses the flat fee at exactly 110.' },
+  printRegularFlat:    { value: 2.30,  label: 'Regular trim, 24–110 pages: flat cost ($)', source: SRC.printCost, verified: VERIFIED },
+  printRegularFixed:   { value: 1.00,  label: 'Regular trim, over 110 pages: fixed cost ($)', source: SRC.printCost, verified: VERIFIED },
+  printRegularPerPage: { value: 0.012, label: 'Regular trim, over 110 pages: per page ($)', source: SRC.printCost, verified: VERIFIED },
+  printLargeFlat:      { value: 2.84,  label: 'Large trim, 24–110 pages: flat cost ($)', source: SRC.printCost, verified: VERIFIED },
+  printLargeFixed:     { value: 1.00,  label: 'Large trim, over 110 pages: fixed cost ($)', source: SRC.printCost, verified: VERIFIED },
+  printLargePerPage:   { value: 0.017, label: 'Large trim, over 110 pages: per page ($)', source: SRC.printCost, verified: VERIFIED },
+  largeTrimWidth:      { value: 6.12,  label: 'Large trim: wider than (in)', source: SRC.printCost, verified: VERIFIED },
+  largeTrimHeight:     { value: 9,     label: 'Large trim: taller than (in)', source: SRC.printCost, verified: VERIFIED },
+  pageRoundEven:       { value: true,  label: 'Page count is rounded up to an even number', source: SRC.cambric, verified: VERIFIED, unverified: true,
+                         note: "Not stated on KDP's printing cost page; taken from the spec's secondary source." },
+
+  pbRateLow:           { value: 0.50,  label: 'Paperback royalty rate below the threshold', source: SRC.pbRoyalty, verified: VERIFIED },
+  pbRateHigh:          { value: 0.60,  label: 'Paperback royalty rate at or above the threshold', source: SRC.pbRoyalty, verified: VERIFIED },
+  pbRateThreshold:     { value: 9.99,  label: 'Paperback 60% rate starts at (at or above, $)', source: SRC.pbRoyalty, verified: VERIFIED,
+                         note: 'KDP: 50% at $9.98 or below, 60% at $9.99 or above.' },
+  pbMinPrice:          { value: 'printing cost ÷ royalty rate', label: 'Minimum paperback list price', source: SRC.printPricing, verified: VERIFIED },
+  pbMaxPrice:          { value: 250,   label: 'Maximum paperback list price ($)', source: SRC.pbRoyalty, verified: VERIFIED },
+  edRate:              { value: 0.40,  label: 'Expanded Distribution royalty rate', source: SRC.expanded, verified: VERIFIED },
+  edMinDivisor:        { value: 0.40,  label: 'With Expanded Distribution, minimum price = printing cost ÷ this', source: SRC.vappingoPrint, verified: VERIFIED, unverified: true,
+                         note: 'KDP only says the minimum "will be different" with Expanded Distribution; the ÷ 0.40 formula comes from a secondary source.' },
+
+  eb70Min:             { value: 2.99,  label: 'eBook 70% option: minimum list price ($)', source: SRC.ebPriceReq, verified: VERIFIED },
+  eb70Max:             { value: 12.99, label: 'eBook 70% option: maximum list price ($)', source: SRC.ebPriceReq, verified: VERIFIED,
+                         note: 'Raised from $9.99, effective July 7, 2026.' },
+  eb70Rate:            { value: 0.70,  label: 'eBook 70% rate, applied to (list price − delivery cost)', source: SRC.ebRoyalty, verified: VERIFIED },
+  eb35Rate:            { value: 0.35,  label: 'eBook 35% rate, applied to list price, no delivery cost', source: SRC.ebRoyalty, verified: VERIFIED },
+  ebPrintDiscount:     { value: 0.20,  label: 'For 70%, eBook must be at least this far below any print edition', source: SRC.ebPricing, verified: VERIFIED },
+  ebDeliveryPerMB:     { value: 0.15,  label: 'eBook delivery cost per MB, Amazon.com ($, default for the input)', source: SRC.ebPricing, verified: VERIFIED },
+  eb35MinBySize:       { value: [ { underMB: 3, min: 0.99 }, { underMB: 10, min: 1.99 }, { underMB: Infinity, min: 2.99 } ],
+                         label: 'eBook minimum list price by file size (<3 MB / 3–10 MB / ≥10 MB)', source: SRC.ebPriceReq, verified: VERIFIED },
+  ebMaxPrice:          { value: 200,   label: 'eBook maximum list price on the 35% option ($)', source: SRC.ebPriceReq, verified: VERIFIED },
+
+  spineWhite:          { value: 0.002252, label: 'Spine width per page, white paper (in)', source: SRC.spine, verified: VERIFIED },
+  spineCream:          { value: 0.0025,   label: 'Spine width per page, cream paper (in)', source: SRC.spine, verified: VERIFIED },
+  spineTextMinPages:   { value: 79,       label: 'Minimum pages for spine text', source: SRC.spine, verified: VERIFIED,
+                         note: 'Cover Creator needs 80.' },
+};
+
+/* ============================================================
+   INPUT_SOURCES: input labels that link to where their rule comes from.
+   The label becomes a quiet link; hovering it shows `tip`.
+   ============================================================ */
+const INPUT_SOURCES = {
+  pages:         { url: SRC.printCost, tip: () => `KDP prints ${R('printMinPages')}–${R('printMaxPages')} pages in black ink. Up to ${R('printFlatMaxPages')} pages the print cost is flat; above that it rises with every page.` },
+  trim:          { url: SRC.printCost, tip: () => `Large trim means wider than ${R('largeTrimWidth')}″ or taller than ${R('largeTrimHeight')}″. It costs more to print: ${money(R('printLargeFlat'))} flat vs ${money(R('printRegularFlat'))} for regular.` },
+  paper:         { url: SRC.spine, tip: () => `Changes the spine width only: ${R('spineWhite')}″ per page on white, ${R('spineCream')}″ on cream. Print cost is the same.` },
+  fileMB:        { url: SRC.ebPriceReq, tip: () => `Sets the lowest eBook price allowed: ${R('eb35MinBySize').map(r => money(r.min)).join(', ')} for files under 3 MB, 3–10 MB, and 10 MB or more. Bigger files also cost more to deliver on 70% sales.` },
+  deliveryPerMB: { url: SRC.ebPricing, tip: () => `Amazon.com charges ${money(R('ebDeliveryPerMB'))} per MB on every 70% sale, taken out before the 70% is applied. 35% sales have no delivery fee.` },
+  pbPrice:       { url: SRC.pbRoyalty, tip: () => `KDP pays ${pct(R('pbRateLow'))} below $${R('pbRateThreshold')} and ${pct(R('pbRateHigh'))} at $${R('pbRateThreshold')} or more, minus the print cost. Maximum $${R('pbMaxPrice')}.` },
+  ebPrice:       { url: SRC.ebPriceReq, tip: () => `70% royalty from $${R('eb70Min')} to $${R('eb70Max')}, if the eBook is at least ${pct(R('ebPrintDiscount'))} below the paperback. Otherwise 35%.` },
+  ed:            { url: SRC.expanded, tip: () => `Lets bookstores and libraries order the paperback. Those sales pay ${pct(R('edRate'))} minus print cost, and the minimum list price goes up.` },
+  authorShipTotal: { url: SRC.authorShip, tip: () => 'KDP shows shipping only on the last checkout page, and it depends on quantity, speed, destination and the books\' size and weight. Start an author copy order for your quantity, read the shipping line without placing the order, and enter it here.' },
+  launchPrice:   { url: SRC.ebPriceReq, tip: () => `Below $${R('eb70Min')} the eBook earns 35%. A Kindle Countdown Deal (KDP Select only) can keep 70% during a short promotion.` },
+};
+
+/* ============================================================
+   GUIDANCE: short tips shown when `when(s)` is true.
+   s = { inp, r } (inputs and computed results). Written in our own words.
+   In `text`, **bold** emphasises and ==x== highlights a key figure. `warn: true` colours the bullet amber.
+   ============================================================ */
+const G_SRC = {
+  luminare: { label: 'Luminare Press', url: 'https://www.luminarepress.com/how-to-price-your-book/' },
+  vappStrategy: { label: 'Vappingo: KDP pricing strategy', url: 'https://www.vappingo.com/word-blog/kdp-pricing-strategy/' },
+  vappPrint: { label: 'Vappingo: KDP print royalties', url: SRC.vappingoPrint },
+  tortora: { label: 'Daniel J. Tortora', url: 'https://www.danieljtortora.com/blog/how-to-price-a-self-published-book' },
+  bookspace: { label: 'Bookspace (formerly books.by)', url: 'https://bookspace.com/guides/how-to-price-a-book' },
+  kdpEbPricing: { label: 'KDP: Digital pricing terms', url: SRC.ebPricing },
+  kdpEbPriceReq: { label: 'KDP: eBook list price requirements', url: SRC.ebPriceReq },
+  kdpPbRoyalty: { label: 'KDP: Paperback royalty', url: SRC.pbRoyalty },
+  kdpExpanded: { label: 'KDP: Expanded Distribution', url: SRC.expanded },
+  kdpSelect: { label: 'KDP: KDP Select', url: 'https://kdp.amazon.com/en_US/help/topic/G200798990' },
+  kdpKuRoyalty: { label: 'KDP: Royalties in Kindle+', url: 'https://kdp.amazon.com/en_US/help/topic/G201541130' },
+  kdpCountdown: { label: 'KDP: Kindle Countdown Deals', url: 'https://kdp.amazon.com/en_US/help/topic/G201293780' },
+  kdpCategories: { label: 'KDP: Categories', url: 'https://kdp.amazon.com/en_US/help/topic/G200652170' },
+  kdpKeywords: { label: 'KDP: Keywords', url: 'https://kdp.amazon.com/en_US/help/topic/G201298500' },
+};
+
+const GUIDANCE = [
+  {
+    id: 'suggested-prices',
+    title: 'Suggested prices for this book',
+    when: () => true,
+    text: s => {
+      const g = suggestPrices(s.inp);
+      const book = `a ${s.inp.pages}-page ${s.inp.trim}-trim paperback${s.inp.ed ? ' with Expanded Distribution' : ''} (print cost ${money(g.cost)})`;
+      const pbLine = {
+        step: `Clearing ==$2== a copy at 50% takes ${money(g.needed)}, so go to ==$9.99==: it earns the 60% rate, ==${money(g.pbRoyalty)}== a copy.`,
+        high: `Clearing ==$2== a copy needs a price above $9.99; ==${money(g.pb)}== earns ==${money(g.pbRoyalty)}== at 60%.`,
+        floor: `KDP's minimum sets the floor here; ==${money(g.pb)}== is the first .95 price above it and earns ==${money(g.pbRoyalty)}== a copy.`,
+        target: `==${money(g.pb)}== is the lowest .95 price that clears ==$2== a copy (==${money(g.pbRoyalty)}==). Every $1 lower costs about 50¢ a copy.`,
+      }[g.pbWhy];
+      const ebLine = g.ebCapped
+        ? `**eBook ==${money(g.eb)}==**, the highest .99 price that stays 20% under the paperback and keeps ==70%== (==${money(g.ebRoyalty)}== a copy).`
+        : `**eBook ==${money(g.eb)}==**, ${g.short ? 'the low end of the usual nonfiction range, since short books sell lower' : 'mid-range for nonfiction'}, earning ==${pct(g.ebRate)}== (==${money(g.ebRoyalty)}== a copy).`;
+      return `For ${book}: **paperback ==${money(g.pb)}==**. ${pbLine} ${ebLine} Starting points only; check comparable books before you settle.`;
+    },
+    action: s => {
+      const g = suggestPrices(s.inp);
+      if (Math.abs(g.pb - s.inp.pbPrice) < EPS && Math.abs(g.eb - s.inp.ebPrice) < EPS) return null;
+      return { label: `Use these in Case ${s.caseIndex + 1}`, run: () => applyPrices(g.pb, g.eb, s.caseIndex) };
+    },
+    sources: [G_SRC.vappPrint, G_SRC.kdpPbRoyalty, G_SRC.kdpEbPricing, G_SRC.luminare, G_SRC.bookspace, G_SRC.tortora], verified: VERIFIED,
+  },
+  {
+    id: 'ebook-below-print',
+    title: 'Keep the eBook well under the paperback',
+    when: s => s.inp.ebPrice > s.r.eb.max70ByPrint,
+    warn: true,
+    text: s => `For the **70% rate**, KDP needs the eBook at least ==20% below== the paperback's Amazon price. At ==${money(s.inp.pbPrice)}== that means ==${money(s.r.eb.max70ByPrint)}== or less. Readers also expect the eBook to cost less.`,
+    sources: [G_SRC.kdpEbPricing, G_SRC.luminare], verified: VERIFIED,
+  },
+  {
+    id: 'rate-jump-near',
+    title: 'The $9.99 paperback step',
+    when: s => s.inp.pbPrice >= 8.5 && s.inp.pbPrice < 9.99,
+    warn: true,
+    text: s => `At ==$9.99== KDP pays ==60%== instead of 50%, so you'd earn ==${money(s.r.at999 - s.r.pb.royaltyAmazon)} more== per Amazon copy. Only cross it if readers of comparable books will pay that; **the step alone isn't a reason to raise the price.**`,
+    sources: [G_SRC.kdpPbRoyalty, G_SRC.vappPrint, G_SRC.vappStrategy], verified: VERIFIED,
+  },
+  {
+    id: 'rate-jump-over',
+    title: 'Above $9.99: check what readers expect',
+    when: s => s.inp.pbPrice >= 9.99,
+    text: () => 'You get the ==60%== rate here. Make sure the price still looks **competitive against similar books**; a book that feels overpriced sells fewer copies than the extra rate is worth.',
+    sources: [G_SRC.vappPrint], verified: VERIFIED,
+  },
+  {
+    id: 'royalty-floor',
+    title: 'Aim for a real margin on paperbacks',
+    when: s => s.r.pb.royaltyAmazon < 2,
+    warn: true,
+    text: s => `Your Amazon paperback royalty is ==${money(s.r.pb.royaltyAmazon)}==. One guide suggests aiming for **at least ==$2== per copy**. A short book may not get there, so decide whether the paperback is mainly for credibility and events.`,
+    sources: [G_SRC.vappPrint], verified: VERIFIED,
+  },
+  {
+    id: 'short-book',
+    title: 'Short books sell at lower prices',
+    when: s => s.inp.pages <= 150,
+    text: () => 'A shorter book generally has to be **priced below full-length titles** to compete. But going very low (around ==$0.99==) can make readers assume the book is thin or on sale.',
+    sources: [G_SRC.tortora, G_SRC.bookspace], verified: VERIFIED,
+  },
+  {
+    id: 'nonfiction-range',
+    general: true,
+    title: 'Typical nonfiction eBook prices',
+    when: () => true,
+    text: () => 'Recent guides put most nonfiction eBooks between about ==$4.99 and $9.99==, with business titles often higher. **Very cheap nonfiction** (around ==$2.99==) **can look amateur.**',
+    sources: [G_SRC.bookspace, G_SRC.luminare, G_SRC.tortora], verified: VERIFIED,
+  },
+  {
+    id: 'price-endings',
+    title: 'Price endings',
+    when: s => cents(s.inp.ebPrice) !== 99 || ![95, 99].includes(cents(s.inp.pbPrice)),
+    text: () => 'Most US eBook prices end in =="99"==, and readers expect it. For print, =="95"== is also common. Either way, an odd ending just under a round number reads as the better deal.',
+    sources: [G_SRC.tortora, G_SRC.luminare, G_SRC.bookspace], verified: VERIFIED,
+  },
+  {
+    id: 'expanded-distribution',
+    title: 'Expanded Distribution trade-offs',
+    when: s => s.inp.ed,
+    text: s => `Those sales pay ==40%== minus printing (==${money(s.r.pb.royaltyEd)}== per copy here), and **the higher price floor applies to the whole book**. Distributors may not accept it, and it can take **up to ==8 weeks==** to reach bookstores and libraries, who choose whether to order it.`,
+    sources: [G_SRC.kdpExpanded, G_SRC.vappPrint], verified: VERIFIED,
+  },
+  {
+    id: 'launch-price',
+    title: 'Launch pricing',
+    when: s => s.r.launch.active,
+    text: s => `Decide in advance what the launch price is meant to do and when it ends, and note the dates so you can compare sales. ${s.inp.launchPrice < KDP_RULES.eb70Min.value ? 'Below ==$2.99== the eBook **drops to ==35%==**. A Kindle Countdown Deal (KDP Select only) keeps ==70%== during a short promotion below $2.99.' : 'At this price the eBook can stay on the ==70%== rate if it still meets the other rules.'}`,
+    sources: [G_SRC.vappStrategy, G_SRC.kdpEbPriceReq, G_SRC.kdpCountdown], verified: VERIFIED,
+  },
+  {
+    id: 'kdp-select',
+    general: true,
+    title: 'KDP Select (eBook only)',
+    when: () => true,
+    text: () => 'Enrolling is a ==90-day== term in which **the eBook must be sold digitally only on Amazon**; print stays free to sell anywhere. You also earn from subscription page reads (KDP now calls the program Kindle+), paid from a monthly fund. You can run either free days (up to ==5== per term) or ==one== Countdown Deal per term, **not both**.',
+    sources: [G_SRC.kdpSelect, G_SRC.kdpKuRoyalty, G_SRC.kdpCountdown], verified: VERIFIED,
+  },
+  {
+    id: 'countdown-rules',
+    title: 'Countdown Deal eligibility',
+    when: s => s.inp.ebPrice >= 2.99 && s.inp.ebPrice <= 24.99,
+    text: () => 'To run one, the eBook needs ==30 days== in KDP Select, a list price of ==$2.99 to $24.99== that **stays unchanged ==30 days== before and ==14 days== after**, and a discount of at least ==$1==. A deal lasts up to ==7 days==.',
+    sources: [G_SRC.kdpCountdown], verified: VERIFIED,
+  },
+  {
+    id: 'categories-keywords',
+    general: true,
+    title: 'Categories and keywords',
+    when: () => true,
+    text: () => 'You choose ==3 categories== and up to ==7 keywords== per format. **Pick categories that really describe the book**; choosing a loosely related one just for an easier Best Seller badge disappoints shoppers and can break KDP rules.',
+    sources: [G_SRC.kdpCategories, G_SRC.kdpKeywords], verified: VERIFIED,
+  },
+];
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const R = k => KDP_RULES[k].value;
+const EPS = 1e-9;
+const roundCents = x => Math.round((x + Number.EPSILON) * 100) / 100;
+const ceilCents  = x => Math.ceil(Number((x * 100).toFixed(6))) / 100;
+const floorCents = x => Math.floor(Number((x * 100).toFixed(6))) / 100;
+const cents = x => Math.round((x - Math.floor(x)) * 100);
+function money(x) {
+  if (!isFinite(x)) return '—';
+  return (x < 0 ? '−$' : '$') + Math.abs(x).toFixed(2);
+}
+function moneyK(x) {
+  if (!isFinite(x)) return '—';
+  return (x < 0 ? '−$' : '$') + Math.round(Math.abs(x)).toLocaleString('en-US');
+}
+const pct = x => Math.round(x * 100) + '%';
+/* Format icons (24px grid, outline). Paperback = open book, eBook = e-reader. */
+const FORMAT_ICONS = {
+  paperback: '<path d="M3 5.5c3-1.2 6-1 9 1v13c-3-2-6-2.2-9-1z"/><path d="M21 5.5c-3-1.2-6-1-9 1v13c3-2 6-2.2 9-1z"/>',
+  ebook: '<rect x="5" y="2.5" width="14" height="19" rx="2.5"/><rect x="7.75" y="5.25" width="8.5" height="10.5" rx="0.75"/><path d="M11 18.5h2"/>',
+};
+function fmtIcon(kind) {
+  const span = document.createElement('span');
+  span.className = 'fmt-icon';
+  span.setAttribute('aria-hidden', 'true');
+  span.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16">${FORMAT_ICONS[kind]}</svg>`;
+  return span;
+}
+// Label text with a format icon in front of it.
+const withIcon = (kind, text) => el('span', { class: 'with-icon' }, fmtIcon(kind), text);
+
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids) if (kid != null) n.append(kid);
+  return n;
+}
+function unverifiedTag(ruleKey) {
+  const rule = KDP_RULES[ruleKey];
+  return el('span', { class: 'tag', title: rule.note || 'Could not confirm on KDP Help.', text: 'unverified' });
+}
+
+/* ---------- KDP calculations (pure) ---------- */
+function billedPages(pages) {
+  let p = Math.max(R('printMinPages'), Math.ceil(pages || 0));
+  if (R('pageRoundEven') && p % 2) p += 1;
+  return p;
+}
+function printCost(pages, trim) {
+  const p = billedPages(pages);
+  const large = trim === 'large';
+  if (p <= R('printFlatMaxPages')) return large ? R('printLargeFlat') : R('printRegularFlat');
+  const fixed = large ? R('printLargeFixed') : R('printRegularFixed');
+  const per = large ? R('printLargePerPage') : R('printRegularPerPage');
+  return roundCents(fixed + p * per);
+}
+const pbRate = price => price >= R('pbRateThreshold') - EPS ? R('pbRateHigh') : R('pbRateLow');
+
+function pbMinPrice(cost, ed) {
+  const t = R('pbRateThreshold');
+  let amazon, reason;
+  const m50 = ceilCents(cost / R('pbRateLow'));
+  if (m50 < t) {
+    amazon = m50; reason = `print cost ÷ ${pct(R('pbRateLow'))}`;
+  } else {
+    const m60 = ceilCents(cost / R('pbRateHigh'));
+    if (m60 >= t) { amazon = m60; reason = `print cost ÷ ${pct(R('pbRateHigh'))}`; }
+    else { amazon = t; reason = `the $${t} step (below it, 50% wouldn't cover printing)`; }
+  }
+  const edMin = ceilCents(cost / R('edMinDivisor'));
+  if (ed && edMin > amazon) return { min: edMin, amazon, edMin, reason: `print cost ÷ ${pct(R('edMinDivisor'))} (Expanded Distribution floor)`, byEd: true };
+  return { min: amazon, amazon, edMin, reason, byEd: false };
+}
+
+function ebookRoyalty(price, pbPrice, mb, perMB) {
+  const delivery = roundCents(Math.max(0, mb) * Math.max(0, perMB));
+  const max70ByPrint = floorCents(pbPrice * (1 - R('ebPrintDiscount')));
+  const max70 = Math.min(R('eb70Max'), max70ByPrint);
+  const inBand = price >= R('eb70Min') - EPS && price <= R('eb70Max') + EPS;
+  const underPrint = price <= max70ByPrint + EPS;
+  let rate, royalty, reason;
+  if (inBand && underPrint) {
+    rate = R('eb70Rate');
+    royalty = roundCents(rate * (price - delivery));
+    reason = `$${R('eb70Min')}–$${R('eb70Max')} and at least 20% below the paperback; minus ${money(delivery)} delivery`;
+  } else {
+    rate = R('eb35Rate');
+    royalty = roundCents(rate * price);
+    reason = !inBand
+      ? `outside $${R('eb70Min')}–$${R('eb70Max')}`
+      : `not 20% below the paperback (max ${money(max70ByPrint)})`;
+  }
+  const minRow = R('eb35MinBySize').find(r => mb < r.underMB);
+  return { rate, royalty, reason, delivery, max70, max70ByPrint, inBand, underPrint, minPrice: minRow.min };
+}
+
+// Spine uses the actual page count (KDP's spine page multiplies page count directly), not the even-rounded billing count.
+const spinePages = pages => Math.max(R('printMinPages'), Math.ceil(pages || 0));
+function spineWidth(pages, paper) {
+  return spinePages(pages) * (paper === 'cream' ? R('spineCream') : R('spineWhite'));
+}
+
+function compute(inp) {
+  const cost = printCost(inp.pages, inp.trim);
+  const rate = pbRate(inp.pbPrice);
+  const pb = {
+    cost, rate,
+    royaltyAmazon: roundCents(rate * inp.pbPrice - cost),
+    royaltyEd: roundCents(R('edRate') * inp.pbPrice - cost),
+    ...pbMinPrice(cost, inp.ed),
+  };
+  const eb = ebookRoyalty(inp.ebPrice, inp.pbPrice, inp.fileMB, inp.deliveryPerMB);
+  const launchActive = inp.launchPrice > 0 && inp.launchDays > 0;
+  const launchEb = launchActive ? ebookRoyalty(inp.launchPrice, inp.pbPrice, inp.fileMB, inp.deliveryPerMB) : null;
+
+  const months = Math.max(1, inp.months || 1);
+  const daysPerMonth = 365 / 12;
+  const periodDays = months * daysPerMonth;
+  const ebUnits = inp.unitsEb * months;
+  const launchUnits = launchActive ? inp.unitsEb / daysPerMonth * Math.min(inp.launchDays, periodDays) : 0;
+  const proj = {
+    pbAmazonUnits: inp.unitsPbAmazon * months,
+    pbEdUnits: inp.ed ? inp.unitsPbEd * months : 0,
+    ebUnits, launchUnits,
+  };
+  proj.pbAmazon = proj.pbAmazonUnits * pb.royaltyAmazon;
+  proj.pbEd = proj.pbEdUnits * pb.royaltyEd;
+  proj.ebook = (ebUnits - launchUnits) * eb.royalty + (launchActive ? launchUnits * launchEb.royalty : 0);
+  proj.total = proj.pbAmazon + proj.pbEd + proj.ebook;
+
+  // Author copies ship as one order, so shipping is a total for the order, not a per-copy charge.
+  const ship = inp.authorShipTotal > 0 ? inp.authorShipTotal : 0;
+  const printTotal = roundCents(inp.authorQty * cost);
+  const author = { print: printTotal, ship, total: roundCents(printTotal + ship),
+    perCopy: inp.authorQty > 0 ? roundCents((printTotal + ship) / inp.authorQty) : 0, shipKnown: ship > 0 };
+
+  const spine = spineWidth(inp.pages, inp.paper);
+  const at999 = roundCents(R('pbRateHigh') * R('pbRateThreshold') - cost);
+
+  return {
+    pb, eb, launch: { active: launchActive, eb: launchEb }, proj, author,
+    spine, spineText: spinePages(inp.pages) >= R('spineTextMinPages'),
+    billed: billedPages(inp.pages), flatCost: inp.trim === 'large' ? R('printLargeFlat') : R('printRegularFlat'),
+    at999, months,
+  };
+}
+
+/* Suggested starting prices for one case, built only from rules and sourced advice already in the app:
+   - Paperback: the lowest price ending in .95 (Luminare) that clears a $2 royalty per copy (Vappingo) and KDP's minimum.
+     If that lands at $9.95 or more, $9.99 is suggested instead, since it earns the 60% rate.
+   - eBook: ends in .99 (Tortora, Luminare). Short books (150 pages or fewer) start at the bottom of the usual
+     $4.99–$9.99 nonfiction range, longer ones in the middle (Bookspace, Tortora). Capped at 20% below the
+     paperback and inside the 70% band (KDP). */
+const SUGGEST_ROYALTY_TARGET = 2;
+const SHORT_BOOK_PAGES = 150;
+function suggestPrices(inp) {
+  const cost = printCost(inp.pages, inp.trim);
+  const floor = pbMinPrice(cost, inp.ed).min;
+  const up95 = x => { const d = Math.floor(x + EPS); return d + 0.95 >= x - EPS ? d + 0.95 : d + 1.95; };
+  const down99 = x => { const d = Math.floor(x + EPS); return d + 0.99 <= x + EPS ? d + 0.99 : d - 0.01; };
+  const t = R('pbRateThreshold');
+  const needed = (SUGGEST_ROYALTY_TARGET + cost) / R('pbRateLow');
+  let pb = up95(Math.max(floor, needed));
+  let pbWhy;
+  if (pb >= t - 0.05 - EPS && R('pbRateHigh') * t - cost >= SUGGEST_ROYALTY_TARGET && t >= floor) {
+    pb = t; pbWhy = 'step';
+  } else if (pb >= t - EPS) {
+    pb = up95(Math.max(floor, (SUGGEST_ROYALTY_TARGET + cost) / R('pbRateHigh'), t)); pbWhy = 'high';
+  } else pbWhy = floor > needed ? 'floor' : 'target';
+  const short = inp.pages <= SHORT_BOOK_PAGES;
+  const ebTarget = short ? 4.99 : 6.99;
+  const ebCap = down99(Math.min(R('eb70Max'), pb * (1 - R('ebPrintDiscount'))));
+  const eb = Math.max(R('eb70Min'), Math.min(ebTarget, ebCap));
+  const r = compute({ ...inp, pbPrice: pb, ebPrice: eb });
+  return { pb, eb, pbWhy, needed: ceilCents(needed), short, ebCapped: ebCap < ebTarget, cost,
+    pbRoyalty: r.pb.royaltyAmazon, ebRoyalty: r.eb.royalty, ebRate: r.eb.rate };
+}
+
+function warnings(inp, r) {
+  const w = [];
+  if (inp.pbPrice < r.pb.min - EPS)
+    w.push(['red', `Paperback ${money(inp.pbPrice)} is below KDP's minimum of ${money(r.pb.min)} (${r.pb.reason}). KDP won't accept it.`]);
+  if (inp.pbPrice > R('pbMaxPrice'))
+    w.push(['red', `Paperback price is above KDP's $${R('pbMaxPrice')} maximum.`]);
+  if (inp.ebPrice < r.eb.minPrice - EPS)
+    w.push(['red', `eBook ${money(inp.ebPrice)} is below the ${money(r.eb.minPrice)} minimum for a ${inp.fileMB} MB file.`]);
+  if (!r.eb.inBand)
+    w.push(['amber', `eBook ${money(inp.ebPrice)} is outside $${R('eb70Min')}–$${R('eb70Max')}, so it earns 35% (${money(r.eb.royalty)} per copy).`]);
+  if (r.eb.inBand && !r.eb.underPrint)
+    w.push(['amber', `eBook isn't at least 20% below the paperback, so it falls to 35%. Lower it to ${money(r.eb.max70ByPrint)} or less to keep 70%.`]);
+  if (r.launch.active && r.launch.eb.rate < R('eb70Rate'))
+    w.push(['amber', `Launch price ${money(inp.launchPrice)} earns 35% (${money(r.launch.eb.royalty)} per copy): ${r.launch.eb.reason}.`]);
+  if (inp.pages < R('printMinPages'))
+    w.push(['amber', `KDP needs at least ${R('printMinPages')} pages; costs are worked out at ${R('printMinPages')}.`]);
+  if (r.billed > R('printFlatMaxPages'))
+    w.push(['amber', `Over ${R('printFlatMaxPages')} pages, print cost rises per page: ${money(r.pb.cost)} vs ${money(r.flatCost)} at ${R('printFlatMaxPages')} pages (+${money(r.pb.cost - r.flatCost)} per copy).`]);
+  if (!r.spineText)
+    w.push(['amber', `Under ${R('spineTextMinPages')} pages, KDP doesn't allow text on the spine.`]);
+  if (inp.pbPrice >= 8.99 && inp.pbPrice < R('pbRateThreshold') - EPS)
+    w.push(['amber', `Just under $${R('pbRateThreshold')}: at $${R('pbRateThreshold')} you'd earn ${money(r.at999)} per Amazon copy, ${money(r.at999 - r.pb.royaltyAmazon)} more.`]);
+  return w;
+}
+
+/* ---------- inputs ---------- */
+const INPUT_IDS = ['pages', 'trim', 'paper', 'fileMB', 'deliveryPerMB', 'pbPrice', 'ebPrice', 'ed', 'launchPrice', 'launchDays',
+  'unitsPbAmazon', 'unitsPbEd', 'unitsEb', 'months', 'authorQty', 'authorShipTotal'];
+const num = id => { const v = parseFloat($(id).value); return isFinite(v) ? v : 0; };
+function readInputs() {
+  return {
+    pages: num('pages'), trim: $('trim').value, paper: $('paper').value,
+    fileMB: num('fileMB'), deliveryPerMB: num('deliveryPerMB'),
+    pbPrice: num('pbPrice'), ebPrice: num('ebPrice'), ed: $('ed').checked,
+    launchPrice: num('launchPrice'), launchDays: num('launchDays'),
+    unitsPbAmazon: num('unitsPbAmazon'), unitsPbEd: num('unitsPbEd'), unitsEb: num('unitsEb'),
+    months: num('months'), authorQty: num('authorQty'), authorShipTotal: num('authorShipTotal'),
+  };
+}
+function writeInputs(inp) {
+  for (const id of INPUT_IDS) {
+    if (!(id in inp)) continue;
+    const n = $(id);
+    if (n.type === 'checkbox') n.checked = !!inp[id];
+    else if ((id === 'launchPrice' || id === 'launchDays' || id === 'authorShipTotal') && !inp[id]) n.value = '';
+    else n.value = inp[id];
+  }
+}
+
+/* ---------- storage (optional) ---------- */
+const STORE_SCEN = 'kdpPlanner.scenarios.v1';
+let storageOk = true;
+function storeGet(key, fallback) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+  catch (e) { storageOk = false; return fallback; }
+}
+function storeSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch (e) { storageOk = false; return false; }
+}
+let scenarios = storeGet(STORE_SCEN, []);
+if (!Array.isArray(scenarios)) scenarios = [];
+
+/* ---------- rendering ---------- */
+/* Summary rows. `get` returns a number for the cell; `sub` an optional line under it.
+   `better` says which way is good ('up' or 'down'), which colours the difference from Case 1. */
+function summarySections(anyEd, anyLaunch) {
+  const projRow = (label, key, extra = {}) => ({ label, minor: true, get: c => c.r.proj[key], fmt: moneyK, better: 'up', ...extra });
+  const cost = { key: 'cost', title: 'Costs', rows: [
+      { label: withIcon('paperback', 'Print cost / copy'), get: c => c.r.pb.cost, fmt: money, better: 'down',
+        sub: c => `${c.r.billed} pages, ${c.inp.trim}`, info: KDP_RULES.printFlatMaxPages.note },
+      { label: 'Author copies', get: c => c.r.author.total, fmt: money, better: 'down',
+        sub: c => `${c.inp.authorQty} copies, ${money(c.r.author.perCopy)} each` + (c.r.author.shipKnown ? '' : ', shipping not entered') },
+    ] };
+  return [
+    cost,
+    { key: 'earn', title: 'Earnings', rows: [
+      { label: withIcon('paperback', 'Paperback royalty / copy'), get: c => c.r.pb.royaltyAmazon, fmt: money, better: 'up',
+        sub: c => `Amazon ${pct(c.r.pb.rate)}` + (c.inp.ed ? ` · ED ${money(c.r.pb.royaltyEd)}` : '') },
+      { label: withIcon('ebook', 'eBook royalty / copy'), get: c => c.r.eb.royalty, fmt: money, better: 'up',
+        sub: c => c.r.eb.rate >= R('eb70Rate') ? '70%' : `35%: ${c.r.eb.reason}` },
+      { label: 'Projected royalties', get: c => c.r.proj.total, fmt: moneyK, better: 'up',
+        sub: c => `${c.r.months} months; print cost already deducted` },
+      projRow(withIcon('paperback', 'Paperback · Amazon'), 'pbAmazon', { sub: c => `${Math.round(c.r.proj.pbAmazonUnits)} copies` }),
+      ...(anyEd ? [projRow(withIcon('paperback', 'Paperback · Expanded'), 'pbEd', { sub: c => c.inp.ed ? `${Math.round(c.r.proj.pbEdUnits)} copies` : 'off' })] : []),
+      projRow(withIcon('ebook', anyLaunch ? 'eBook (incl. launch)' : 'eBook'), 'ebook', { sub: c => `${Math.round(c.r.proj.ebUnits)} copies` }),
+      // Royalties already have print cost taken out by KDP; this also subtracts what you pay up front for author copies.
+      { label: 'After author copies', net: true, get: c => c.r.proj.total - c.r.author.total, fmt: moneyK, better: 'up',
+        sub: () => 'projected royalties − author copies' },
+    ] },
+    { key: 'limit', title: 'Limits', rows: [
+      { label: el('span', null, withIcon('paperback', 'Minimum paperback price'), anyEd ? ' ' : null, anyEd ? unverifiedTag('edMinDivisor') : null),
+        get: c => c.r.pb.min, fmt: money, sub: c => c.r.pb.byEd ? 'Expanded Distribution floor' : c.r.pb.reason },
+      { label: withIcon('ebook', 'Max eBook price for 70%'), get: c => c.r.eb.max70, fmt: money,
+        sub: c => c.r.eb.max70ByPrint < R('eb70Max') ? '20% under paperback' : `KDP's $${R('eb70Max')} cap` },
+    ] },
+  ];
+}
+
+function renderSummary() {
+  const wrap = $('summary'); wrap.replaceChildren();
+  const cols = cases.map((c, i) => ({ i, name: caseTitle(i), inp: c.inp, r: compute(c.inp), color: `var(${CASE_COLORS[i]})` }));
+  const colgroup = () => el('colgroup', null, el('col', { class: 'c-sec' }), el('col', { class: 'c-label' }), ...cols.map(() => el('col')));
+  const block = (cls, ...rows) => el('div', { class: 'sum-block' }, el('table', { class: 'sum ' + cls }, colgroup(), el('tbody', null, ...rows)));
+  const caseCell = (c, extra = {}) => el('td', { class: c.i === activeCase ? 'active' : '', style: `--case:${c.color}`, ...extra });
+
+  // Differences are shown against the baseline case chosen above the table (Case 1 unless changed).
+  const baseIdx = settings.baseline;
+  [...$('baselineCase').options].forEach((o, i) => { o.textContent = `Case ${i + 1}: ${caseTitle(i)}`; });
+  const head = el('tr', null, el('th', { class: 'sec' }), el('th', { class: 'rl' }));
+  cols.forEach(c => head.append(el('th', {
+    class: 'case' + (c.i === activeCase ? ' active' : ''), style: `--case:${c.color}`, title: `Edit Case ${c.i + 1}'s inputs`, onclick: () => openCase(c.i) },
+    c.i === baseIdx ? el('span', { class: 'base-tag', title: 'Other cases show their difference from this one', text: 'baseline' }) : null,
+    `Case ${c.i + 1} `, el('span', { class: 'edit', text: '✎' }), el('span', { class: 'nm', text: c.name }))));
+  wrap.append(block('head', head));
+
+  const fmtDelta = (d, fmt) => (d > 0 ? '+' : '−') + fmt(Math.abs(d)).replace('−', '');
+  for (const sec of summarySections(cols.some(c => c.inp.ed), cols.some(c => c.r.launch.active))) {
+    const rows = sec.rows.map((row, ri) => {
+      const tr = el('tr', row.minor ? { class: 'minor' } : row.net ? { class: 'net' } : null);
+      if (ri === 0) tr.append(el('th', { class: 'sec', rowspan: String(sec.rows.length) }, el('span', { text: sec.title })));
+      const label = el('th', { class: 'rl' }, row.label);
+      if (row.info) label.append(' ', el('span', { class: 'info', title: row.info, text: 'ⓘ' }));
+      tr.append(label);
+      const base = row.get(cols[baseIdx]);
+      cols.forEach(c => {
+        const v = row.get(c);
+        const cell = caseCell(c);
+        const line = el('div');
+        const d = v - base;
+        if (c.i !== baseIdx && Math.abs(d) >= 0.005) {
+          const tone = !row.better ? 'neutral' : (d > 0) === (row.better === 'up') ? 'good' : 'bad';
+          line.append(el('span', { class: 'd ' + tone, title: `Difference from Case ${baseIdx + 1}`, text: fmtDelta(d, row.fmt) }));
+        }
+        line.append(el('span', { class: 'v' + (v < 0 ? ' neg' : ''), text: row.fmt(v) }));
+        cell.append(line);
+        if (row.sub) cell.append(el('div', { class: 's', text: row.sub(c) }));
+        tr.append(cell);
+      });
+      return tr;
+    });
+    wrap.append(block(sec.key, ...rows));
+  }
+
+  // Warnings: KDP rule problems for each case, in that case's column.
+  const warnRow = el('tr', null, el('th', { class: 'sec' }, el('span', { text: 'Warnings' })), el('th', { class: 'rl', text: 'KDP rules and price checks' }));
+  cols.forEach(c => {
+    const chips = el('div', { class: 'chips' });
+    const list = warnings(c.inp, c.r);
+    if (!list.length) chips.append(el('div', { class: 'chip ok', text: 'No problems.' }));
+    for (const [lvl, text] of list) chips.append(el('div', { class: 'chip ' + lvl, text }));
+    const cell = caseCell(c);
+    cell.append(chips);
+    warnRow.append(cell);
+  });
+  wrap.append(block('warn', warnRow));
+}
+
+function renderSpine(r) {
+  // Spine is a cover spec, so it lives in the Book panel.
+  $('spineOut').replaceChildren(
+    'Spine width: ', el('b', { text: r.spine.toFixed(3) + '″' }),
+    r.spineText ? ' · spine text allowed' : ` · no spine text (needs ${R('spineTextMinPages')}+ pages)`);
+}
+
+function caseColumns() {
+  return cases.map((c, i) => ({ i, inp: c.inp, r: compute(c.inp) }));
+}
+function caseColumn(i) {
+  return el('div', { class: 'case-col', style: `--case:var(${CASE_COLORS[i]})` },
+    el('div', { class: 'case-col-head' }, el('span', { class: 'swatch' }), `Case ${i + 1}`, el('span', { class: 'nm', text: caseTitle(i) })));
+}
+
+
+// Turns guidance markup into nodes: **bold** and ==key figure==. Text is never parsed as HTML.
+function rich(text) {
+  const frag = document.createDocumentFragment();
+  const parse = (str, parent) => {
+    const re = /\*\*(.+?)\*\*|==(.+?)==/g;
+    let last = 0, m;
+    while ((m = re.exec(str))) {
+      if (m.index > last) parent.append(str.slice(last, m.index));
+      if (m[1] != null) { const b = el('strong'); parse(m[1], b); parent.append(b); }
+      else parent.append(el('span', { class: 'key', text: m[2] }));
+      last = re.lastIndex;
+    }
+    if (last < str.length) parent.append(str.slice(last));
+  };
+  parse(text, frag);
+  return frag;
+}
+
+function guidanceItem(g, s) {
+  const meta = el('span', { class: 'meta' }, ' Source: ');
+  g.sources.forEach((src, i) => {
+    if (i) meta.append(' · ');
+    meta.append(el('a', { href: src.url, target: '_blank', rel: 'noopener', text: src.label }));
+  });
+  meta.append(` · verified ${g.verified}`);
+  const act = g.action ? g.action(s) : null;
+  const btn = act ? el('button', { class: 'small tip-action', type: 'button', text: act.label, onclick: act.run }) : null;
+  return el('li', g.warn ? { class: 'warn' } : null, el('span', { class: 't', text: g.title + '. ' }), rich(g.text(s)), btn ? ' ' : null, btn, meta);
+}
+const showsFor = (g, s) => { try { return g.when(s); } catch (e) { return false; } };
+
+// Case-specific tips go in each case's column; tips marked `general` read the same for every case, so they're listed once.
+function renderGuidance() {
+  const box = $('guidance'); box.replaceChildren();
+  const cols = caseColumns();
+  for (const c of cols) {
+    const s = { inp: c.inp, r: c.r, caseIndex: c.i };
+    const col = caseColumn(c.i), ul = el('ul', { class: 'guidance' });
+    for (const g of GUIDANCE) if (!g.general && showsFor(g, s)) ul.append(guidanceItem(g, s));
+    col.append(ul);
+    box.append(col);
+  }
+  const general = $('guidanceGeneral'); general.replaceChildren();
+  const s0 = { inp: cols[0].inp, r: cols[0].r, caseIndex: 0 };
+  for (const g of GUIDANCE) if (g.general) general.append(guidanceItem(g, s0));
+}
+
+function renderRules() {
+  const t = $('rulesList'); t.replaceChildren();
+  for (const [key, rule] of Object.entries(KDP_RULES)) {
+    let v = rule.value;
+    if (Array.isArray(v)) v = v.map(x => '$' + x.min).join(' / ');
+    t.append(el('tr', null,
+      el('td', { text: rule.label }),
+      el('td', null, el('b', { text: String(v) }), rule.unverified ? ' ' : null, rule.unverified ? unverifiedTag(key) : null),
+      el('td', null, el('a', { href: rule.source, target: '_blank', rel: 'noopener', text: 'source' }), ` · ${rule.verified}`),
+      el('td', { class: 'note', text: rule.note || '' })));
+  }
+}
+
+/* ---------- scenarios ---------- */
+const SCEN_COLS = [
+  ['Name', s => s.name],
+  ['Pages', s => s.inp.pages],
+  ['Trim', s => s.inp.trim],
+  ['Paper', s => s.inp.paper],
+  ['Paperback $', s => s.inp.pbPrice.toFixed(2)],
+  ['eBook $', s => s.inp.ebPrice.toFixed(2)],
+  ['ED', s => s.inp.ed ? 'on' : 'off'],
+  ['Launch $', s => s.inp.launchPrice > 0 && s.inp.launchDays > 0 ? `${s.inp.launchPrice.toFixed(2)} × ${s.inp.launchDays}d` : ''],
+  ['PB Amazon/mo', s => s.inp.unitsPbAmazon],
+  ['PB ED/mo', s => s.inp.ed ? s.inp.unitsPbEd : 0],
+  ['eBook/mo', s => s.inp.unitsEb],
+  ['Months', s => s.inp.months],
+  ['Print cost', s => s.r.pb.cost.toFixed(2)],
+  ['Min PB price', s => s.r.pb.min.toFixed(2)],
+  ['PB royalty Amazon', s => s.r.pb.royaltyAmazon.toFixed(2)],
+  ['PB royalty ED', s => s.inp.ed ? s.r.pb.royaltyEd.toFixed(2) : ''],
+  ['eBook royalty', s => s.r.eb.royalty.toFixed(2)],
+  ['eBook rate', s => pct(s.r.eb.rate)],
+  ['Spine (in)', s => s.r.spine.toFixed(3)],
+  ['Author copies $', s => s.r.author.total.toFixed(2)],
+  ['Proj. PB Amazon', s => s.r.proj.pbAmazon.toFixed(2)],
+  ['Proj. PB ED', s => s.r.proj.pbEd.toFixed(2)],
+  ['Proj. eBook', s => s.r.proj.ebook.toFixed(2)],
+  ['Proj. total', s => s.r.proj.total.toFixed(2)],
+];
+// Results are recomputed from saved inputs so scenarios follow any update to KDP_RULES.
+const scenRows = () => scenarios.map(sc => ({ name: sc.name, inp: sc.inp, r: compute(sc.inp) }));
+const caseRows = () => cases.map((c, i) => ({ name: `Case ${i + 1}: ${c.name}`, inp: c.inp, r: compute(c.inp) }));
+
+/* ---------- cases: three tabs of inputs; the active one drives the summary, warnings and guidance ---------- */
+const STORE_CASES = 'kdpPlanner.cases.v1';
+const STORE_ACTIVE = 'kdpPlanner.activeCase.v1';
+const STORE_SHOWN = 'kdpPlanner.casesOnCharts.v1';
+const CASE_COLORS = ['--slot1', '--slot2', '--slot3'];
+const CASE_BASE = { pages: 130, trim: 'regular', paper: 'white', fileMB: 1, deliveryPerMB: R('ebDeliveryPerMB'), ed: false,
+  launchPrice: 0, launchDays: 0, unitsPbAmazon: 20, unitsPbEd: 0, unitsEb: 30, months: 12, authorQty: 100, authorShipTotal: 0 };
+// Starting points only: a low, a middle and a higher price. Sales guesses fall a little as price rises.
+const CASE_PRESETS = [
+  { name: 'Low price', inp: { ...CASE_BASE, pbPrice: 7.95, ebPrice: 3.99, unitsPbAmazon: 25, unitsEb: 40 } },
+  { name: '$9.99 paperback', inp: { ...CASE_BASE, pbPrice: 9.99, ebPrice: 4.99, unitsPbAmazon: 20, unitsEb: 30 } },
+  { name: 'Wide reach', inp: { ...CASE_BASE, pbPrice: 11.99, ebPrice: 5.99, ed: true, unitsPbAmazon: 16, unitsPbEd: 4, unitsEb: 25 } },
+];
+let cases = storeGet(STORE_CASES, null);
+if (!Array.isArray(cases) || cases.length !== 3 || !cases.every(c => c && typeof c.inp === 'object'))
+  cases = JSON.parse(JSON.stringify(CASE_PRESETS));
+cases = cases.map(c => ({ name: String(c.name || ''), inp: { ...CASE_BASE, ...c.inp } }));
+// The case 3 preset was renamed; update copies still carrying the old default name.
+cases.forEach(c => { if (c.name === 'Wide distribution') c.name = 'Wide reach'; });
+let activeCase = Number(storeGet(STORE_ACTIVE, 0));
+if (![0, 1, 2].includes(activeCase)) activeCase = 0;
+let casesShown = storeGet(STORE_SHOWN, [true, true, true]);
+if (!Array.isArray(casesShown) || casesShown.length !== 3) casesShown = [true, true, true];
+
+const caseTitle = i => cases[i].name || `Case ${i + 1}`;
+
+function renderCaseTabs() {
+  const box = $('caseTabs'); box.replaceChildren();
+  cases.forEach((c, i) => box.append(el('button', {
+    class: 'case-tab' + (i === activeCase ? ' active' : ''), role: 'tab', 'aria-selected': String(i === activeCase),
+    style: `--case:var(${CASE_COLORS[i]})`, onclick: () => selectCase(i) },
+    el('span', { class: 'case-num' }, el('span', { class: 'swatch' }), `Case ${i + 1}`),
+    el('span', { class: 'case-sub', text: c.name || '—' }))));
+}
+function selectCase(i) {
+  // Record a pending edit under the case it was made in, so undo can jump back to it.
+  if (undoHistory.timer) commitHistory();
+  activeCase = i; storeSet(STORE_ACTIVE, i);
+  writeInputs(cases[i].inp);
+  $('caseName').value = cases[i].name;
+  renderCaseTabs();
+  update();
+}
+function saveCases() { storeSet(STORE_CASES, cases); }
+function onInputsChanged() { cases[activeCase].inp = readInputs(); saveCases(); update(); commitSoon(); }
+function onCaseNameChanged() {
+  cases[activeCase].name = $('caseName').value;
+  saveCases(); renderCaseTabs(); renderScenarios(); update(); commitSoon();
+}
+function applyPrices(pb, eb, i = activeCase) {
+  cases[i].inp = { ...cases[i].inp, pbPrice: pb, ebPrice: eb };
+  if (i === activeCase) writeInputs(cases[i].inp);
+  saveCases(); update(); commitHistory();
+}
+function resetCase() {
+  cases[activeCase] = JSON.parse(JSON.stringify(CASE_PRESETS[activeCase]));
+  saveCases();
+  selectCase(activeCase);
+  commitHistory();
+}
+
+/* ---------- undo / redo: snapshots of every case and saved scenario ----------
+   Typing and dragging are grouped: a snapshot is taken once edits pause for half a second.
+   Switching tabs isn't an edit; undo jumps to the case that changed so you can see it. */
+const undoHistory = { stack: [], i: -1, timer: 0 };
+const historyData = () => JSON.stringify({ cases, scenarios });
+function commitHistory() {
+  clearTimeout(undoHistory.timer); undoHistory.timer = 0;
+  const data = historyData();
+  if (undoHistory.i >= 0 && undoHistory.stack[undoHistory.i].data === data) return;
+  undoHistory.stack = undoHistory.stack.slice(0, undoHistory.i + 1);
+  undoHistory.stack.push({ data, active: activeCase });
+  if (undoHistory.stack.length > 200) undoHistory.stack.shift();
+  undoHistory.i = undoHistory.stack.length - 1;
+  updateHistoryButtons();
+}
+function commitSoon() { clearTimeout(undoHistory.timer); undoHistory.timer = setTimeout(commitHistory, 500); updateHistoryButtons(); }
+function restoreHistory(entry, showCase) {
+  const st = JSON.parse(entry.data);
+  cases = st.cases; scenarios = st.scenarios;
+  saveCases(); storeSet(STORE_SCEN, scenarios);
+  selectCase(showCase);
+  updateHistoryButtons();
+}
+function undo() {
+  if (undoHistory.timer) commitHistory();
+  if (undoHistory.i <= 0) return;
+  const showCase = undoHistory.stack[undoHistory.i].active;
+  undoHistory.i--;
+  restoreHistory(undoHistory.stack[undoHistory.i], showCase);
+}
+function redo() {
+  if (undoHistory.i >= undoHistory.stack.length - 1) return;
+  undoHistory.i++;
+  restoreHistory(undoHistory.stack[undoHistory.i], undoHistory.stack[undoHistory.i].active);
+}
+function updateHistoryButtons() {
+  $('undoBtn').disabled = undoHistory.i <= 0 && !undoHistory.timer;
+  $('redoBtn').disabled = undoHistory.i >= undoHistory.stack.length - 1;
+}
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+function initHistory() {
+  const mod = IS_MAC ? '⌘' : 'Ctrl+';
+  $('undoBtn').title = `Undo (${mod}Z)`;
+  $('redoBtn').title = IS_MAC ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y or Ctrl+Shift+Z)';
+  $('resetCase').title = "Put this case back to its starting values. You can undo this.";
+  $('undoBtn').addEventListener('click', undo);
+  $('redoBtn').addEventListener('click', redo);
+  $('resetCase').addEventListener('click', resetCase);
+  // The app's undo replaces the browser's per-field undo, so one shortcut works the same everywhere.
+  document.addEventListener('keydown', e => {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if ((k === 'z' && e.shiftKey) || (k === 'y' && !IS_MAC)) { e.preventDefault(); redo(); }
+  });
+  commitHistory();
+}
+
+function renderScenarioPicker() {
+  const sel = $('loadScen'); sel.replaceChildren();
+  sel.append(el('option', { value: '', text: scenarios.length ? 'Load a saved scenario…' : 'No saved scenarios yet' }));
+  scenarios.forEach((sc, i) => sel.append(el('option', { value: String(i), text: sc.name })));
+  sel.value = '';
+}
+function loadIntoCase(sc) {
+  cases[activeCase] = { name: sc.name, inp: { ...CASE_BASE, ...sc.inp } };
+  saveCases();
+  selectCase(activeCase);
+  commitHistory();
+}
+
+function renderScenarios() {
+  renderScenarioPicker();
+  renderCompareBar();
+  const t = $('scenTable'); t.replaceChildren();
+  const note = $('storageNote');
+  note.hidden = storageOk;
+  note.textContent = storageOk ? '' : 'Browser storage is unavailable, so cases and scenarios last only until you close this page.';
+  const head = el('tr');
+  for (const [h] of SCEN_COLS) head.append(el('th', { text: h }));
+  head.append(el('th', { text: '' }));
+  t.append(head);
+  const groupRow = text => t.append(el('tr', { class: 'group' }, el('td', { colspan: String(SCEN_COLS.length + 1), text })));
+  groupRow('Cases');
+  caseRows().forEach((s, i) => {
+    const tr = el('tr');
+    for (const [, f] of SCEN_COLS) tr.append(el('td', { text: String(f(s)) }));
+    tr.append(el('td', null, el('button', { class: 'small', text: 'Edit', onclick: () => openCase(i) })));
+    t.append(tr);
+  });
+  groupRow(scenarios.length ? 'Saved scenarios' : 'Saved scenarios: none yet. Use "Save as scenario" in the case editor.');
+  scenRows().forEach((s, i) => {
+    const tr = el('tr');
+    for (const [, f] of SCEN_COLS) tr.append(el('td', { text: String(f(s)) }));
+    tr.append(el('td', null,
+      el('button', { class: 'small', text: `Load into Case ${activeCase + 1}`, onclick: () => loadIntoCase(scenarios[i]) }), ' ',
+      el('button', { class: 'small', text: 'Delete', onclick: () => { scenarios.splice(i, 1); storeSet(STORE_SCEN, scenarios); renderScenarios(); update(); commitHistory(); } })));
+    t.append(tr);
+  });
+}
+
+function saveScenario() {
+  const inp = readInputs();
+  const name = cases[activeCase].name.trim() || `${money(inp.pbPrice)} PB / ${money(inp.ebPrice)} eBook, ${inp.pages}p`;
+  const existing = scenarios.findIndex(s => s.name === name);
+  const entry = { name, inp, saved: new Date().toISOString() };
+  if (existing >= 0) scenarios[existing] = entry; else scenarios.push(entry);
+  storeSet(STORE_SCEN, scenarios);
+  renderScenarios();
+  update();
+  commitHistory();
+  const btn = $('saveScen');
+  btn.textContent = existing >= 0 ? 'Updated ✓' : 'Saved ✓';
+  setTimeout(() => { btn.textContent = 'Save as scenario'; }, 1400);
+}
+
+function exportCsv() {
+  const esc = v => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = [SCEN_COLS.map(c => esc(c[0])).join(',')];
+  for (const s of [...caseRows(), ...scenRows()]) lines.push(SCEN_COLS.map(c => esc(c[1](s))).join(','));
+  const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/csv' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: 'kdp-scenarios.csv' });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ---------- charts ---------- */
+const hasChart = typeof window.Chart === 'function';
+const charts = {};
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// Draws shaded x-ranges (bands) and labelled vertical lines (lines) on a linear x axis.
+const markerPlugin = {
+  id: 'markers',
+  beforeDatasetsDraw(chart, args, opts) {
+    const { ctx, chartArea: a, scales: { x } } = chart;
+    (opts.bands || []).forEach((b, i) => {
+      const from = Math.max(b.from, x.min), to = Math.min(b.to, x.max);
+      if (to <= from) return;
+      const x1 = x.getPixelForValue(from), x2 = x.getPixelForValue(to);
+      ctx.save();
+      ctx.fillStyle = b.color;
+      ctx.fillRect(x1, a.top, x2 - x1, a.bottom - a.top);
+      if (b.label) {
+        ctx.fillStyle = css('--muted'); ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText(b.label, x1 + 4, a.bottom - 6 - i * 14);
+      }
+      ctx.restore();
+    });
+  },
+  afterDatasetsDraw(chart, args, opts) {
+    const { ctx, chartArea: a, scales: { x } } = chart;
+    (opts.lines || []).forEach((l, i) => {
+      if (l.x < x.min || l.x > x.max) return;
+      const px = x.getPixelForValue(l.x);
+      ctx.save();
+      ctx.strokeStyle = l.color; ctx.lineWidth = l.width || 1.5; ctx.setLineDash(l.dash || []);
+      ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '11px system-ui, sans-serif';
+      const w = ctx.measureText(l.label).width + 6;
+      const right = px + w > a.right;
+      const tx = right ? px - w - 2 : px + 2, ty = a.top + 4 + i * 15;
+      ctx.fillStyle = css('--surface'); ctx.globalAlpha = 0.85; ctx.fillRect(tx, ty, w, 13); ctx.globalAlpha = 1;
+      ctx.fillStyle = l.color; ctx.textBaseline = 'top'; ctx.fillText(l.label, tx + 3, ty + 1);
+      ctx.restore();
+    });
+  },
+};
+
+// Builds the legend as HTML above the canvas so compare mode can show one column per case.
+// Datasets may carry `group` (case number), `groupTitle` and a short `legendLabel`.
+const htmlLegendPlugin = {
+  id: 'htmlLegend',
+  afterUpdate(chart, args, opts) {
+    if (!opts || !opts.enabled) return;
+    const box = chart.canvas.closest('.chart-box').querySelector('.legend');
+    if (!box) return;
+    box.replaceChildren();
+    const groups = new Map();
+    chart.data.datasets.forEach((ds, i) => {
+      const key = ds.group || 0;
+      if (!groups.has(key)) groups.set(key, { title: ds.groupTitle, color: ds.borderColor, items: [] });
+      groups.get(key).items.push({ ds, i });
+    });
+    box.classList.toggle('grouped', groups.size > 1);
+    for (const g of groups.values()) {
+      const col = el('div', { class: 'legend-col' });
+      if (g.title) col.append(el('div', { class: 'legend-title', style: `color:${g.color}`, text: g.title }));
+      for (const { ds, i } of g.items) {
+        const hidden = !chart.isDatasetVisible(i);
+        const dashed = !!ds.borderDash;
+        const sw = el('span', { class: 'legend-swatch' + (dashed ? ' dashed' : ''), style: dashed ? `border-color:${ds.borderColor}` : `background:${ds.borderColor}` });
+        col.append(el('button', { class: 'legend-item' + (hidden ? ' off' : ''), type: 'button', title: hidden ? 'Show this line' : 'Hide this line',
+          onclick: () => { chart.setDatasetVisibility(i, hidden); chart.update(); } }, sw, ds.legendLabel || ds.label));
+      }
+      box.append(col);
+    }
+  },
+};
+
+function baseOptions(xTitle, yTitle, xMin, xMax, yMoney) {
+  const grid = css('--grid'), text = css('--muted');
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    scales: {
+      x: { type: 'linear', min: xMin, max: xMax, title: { display: true, text: xTitle, color: text }, grid: { color: grid }, ticks: { color: text } },
+      y: { title: { display: true, text: yTitle, color: text }, grid: { color: grid },
+           ticks: { color: text, callback: v => yMoney ? money(v) : v } },
+    },
+    plugins: {
+      htmlLegend: { enabled: true },
+      legend: { display: false, labels: { color: css('--text'), boxWidth: 12,
+        // Thick compare-mode lines would otherwise draw heavy swatch outlines.
+        generateLabels: chart => Chart.defaults.plugins.legend.labels.generateLabels(chart).map(item => ({ ...item, lineWidth: Math.min(item.lineWidth || 0, 1.5) })) } },
+      tooltip: { callbacks: { label: c => `${c.dataset.label}: ${money(c.parsed.y)}`, title: c => (xTitle.includes('page') ? c[0].parsed.x + ' pages' : money(c[0].parsed.x)) } },
+      markers: { lines: [], bands: [] },
+    },
+  };
+}
+// Dashed series get no fill, so their legend swatch is a dashed outline rather than a solid block.
+const line = (label, color, extra) => ({ label, data: [], borderColor: color, backgroundColor: extra && extra.borderDash ? 'transparent' : color, pointRadius: 0, borderWidth: 2, ...extra });
+
+function priceRange(from, to, step, extra) {
+  const xs = [];
+  for (let p = from; p <= to + EPS; p += step) xs.push(roundCents(p));
+  for (const e of extra) if (e >= from && e <= to) xs.push(roundCents(e));
+  return [...new Set(xs)].sort((a, b) => a - b);
+}
+
+function buildCharts() {
+  if (!hasChart) { $('chartFallback').hidden = false; return; }
+  Object.values(charts).forEach(c => c.destroy());
+  Chart.register(markerPlugin, htmlLegendPlugin);
+  const c1 = css('--accent'), c2 = css('--accent-2'), c3 = css('--accent-3');
+
+  // Datasets for the three line charts are rebuilt on every update (see updateCharts).
+  charts.pb = new Chart($('chartPb'), { type: 'line', data: { datasets: [] },
+    options: baseOptions('Paperback list price', 'Royalty per copy', 4, 15, true) });
+  charts.eb = new Chart($('chartEb'), { type: 'line', data: { datasets: [] },
+    options: baseOptions('eBook list price', 'Royalty per copy', 0.99, 14.99, true) });
+  charts.pages = new Chart($('chartPages'), { type: 'line', data: { datasets: [] },
+    options: baseOptions('Page count', 'US dollars', 24, 300, true) });
+  charts.pages.options.plugins.tooltip.callbacks.title = c => c[0].parsed.x + ' pages';
+
+  const scenOpts = baseOptions('', 'Projected earnings', undefined, undefined, true);
+  scenOpts.scales.x = { stacked: true, grid: { display: false }, ticks: { color: css('--muted') } };
+  scenOpts.scales.y.stacked = true;
+  scenOpts.scales.y.ticks.callback = v => moneyK(v);
+  scenOpts.parsing = true;
+  scenOpts.interaction = { mode: 'index', intersect: false };
+  scenOpts.plugins.tooltip.callbacks = { label: c => `${c.dataset.label}: ${moneyK(c.parsed.y)}` };
+  // Drop legend entries with nothing to show, e.g. Expanded Distribution when no bar uses it.
+  scenOpts.plugins.htmlLegend.enabled = false;
+  scenOpts.plugins.legend.display = true;
+  scenOpts.plugins.legend.labels.filter = (item, data) => data.datasets[item.datasetIndex].data.some(v => v !== 0);
+  charts.scen = new Chart($('chartScen'), { type: 'bar', data: { labels: [], datasets: [
+    { label: 'Paperback · Amazon', data: [], backgroundColor: c1 },
+    { label: 'Paperback · Expanded', data: [], backgroundColor: c2 },
+    { label: 'eBook', data: [], backgroundColor: c3 } ] }, options: scenOpts });
+}
+
+/* Which cases the line charts draw. One case gets the detailed view; two or three are overlaid in case colours. */
+function chartConfigs() {
+  const out = [];
+  cases.forEach((c, i) => {
+    if (!casesShown[i]) return;
+    out.push({ n: i + 1, name: caseTitle(i), inp: c.inp, r: compute(c.inp), color: css(CASE_COLORS[i]) });
+  });
+  return out;
+}
+
+function renderCompareBar() {
+  const bar = $('compareBar'); bar.replaceChildren(el('span', { class: 'note', text: 'Show on charts:' }));
+  cases.forEach((c, i) => {
+    // The checkbox itself carries the case colour, so it doubles as the legend swatch.
+    const cb = el('input', { type: 'checkbox', style: `accent-color:var(${CASE_COLORS[i]})` });
+    cb.checked = casesShown[i];
+    cb.addEventListener('change', () => { casesShown[i] = cb.checked; storeSet(STORE_SHOWN, casesShown); update(); });
+    bar.append(el('label', { class: 'slot' }, cb, `Case ${i + 1}`));
+  });
+  bar.append(el('span', { class: 'note', text: 'Tick one case for the detailed view.' }));
+  bar.append(chartMenu());
+}
+
+/* Show or hide whole charts. Remembered between visits. */
+const STORE_CHARTS = 'kdpPlanner.chartsShown.v1';
+const CHART_NAMES = { chartPb: 'Paperback royalty vs list price', chartEb: 'eBook royalty vs list price',
+  chartPages: 'Print cost and minimum price vs page count', chartScen: 'Projected earnings' };
+let chartsShown = { chartPb: true, chartEb: true, chartPages: true, chartScen: true, ...storeGet(STORE_CHARTS, {}) };
+let chartMenuOpen = false;
+function applyChartVisibility() {
+  for (const id of Object.keys(CHART_NAMES)) document.querySelector(`[data-chart="${id}"]`).hidden = !chartsShown[id];
+}
+function chartMenu() {
+  const menu = el('details', { class: 'menu' });
+  menu.open = chartMenuOpen;
+  menu.addEventListener('toggle', () => { chartMenuOpen = menu.open; });
+  const panel = el('div', { class: 'menu-panel' }, el('div', { class: 'note', text: 'Charts to show' }));
+  for (const [id, name] of Object.entries(CHART_NAMES)) {
+    const cb = el('input', { type: 'checkbox' });
+    cb.checked = chartsShown[id];
+    cb.addEventListener('change', () => { chartsShown[id] = cb.checked; storeSet(STORE_CHARTS, chartsShown); applyChartVisibility(); });
+    panel.append(el('label', null, cb, name));
+  }
+  menu.append(el('summary', { text: '⚙ Show charts…' }), panel);
+  return menu;
+}
+
+function updateCharts(inp, r) {
+  if (!hasChart) return;
+  const cfgs = chartConfigs();
+  if (cfgs.length >= 2) return updateChartsCompare(cfgs);
+  const one = cfgs[0] || { inp, r };
+  updateChartsSingle(one.inp, one.r);
+}
+
+function updateChartsSingle(inp, r) {
+  const red = css('--red'), muted = css('--muted'), text = css('--text');
+  const c1 = css('--accent'), c2 = css('--accent-2'), c3 = css('--accent-3');
+  const cost = r.pb.cost;
+
+  // 1. Paperback royalty vs price
+  const xs = priceRange(4, 15, 0.05, [R('pbRateThreshold') - 0.01, R('pbRateThreshold'), inp.pbPrice, r.pb.min]);
+  charts.pb.data.datasets = [
+    { ...line('Amazon', c1), data: xs.map(p => ({ x: p, y: roundCents(pbRate(p) * p - cost) })) },
+    // Left out (not just hidden) when ED is off, so the legend doesn't list it struck through.
+    ...(inp.ed ? [{ ...line('Expanded Distribution', c2, { borderDash: [5, 4] }), data: xs.map(p => ({ x: p, y: roundCents(R('edRate') * p - cost) })) }] : []),
+  ];
+  charts.pb.options.plugins.markers = { bands: [{ from: 4, to: r.pb.min, color: css('--red-band'), label: 'below minimum' }], lines: [
+    { x: inp.pbPrice, label: `current ${money(inp.pbPrice)}`, color: text, width: 2 },
+    { x: r.pb.min, label: `min ${money(r.pb.min)}`, color: red, dash: [4, 3] },
+    { x: R('pbRateThreshold'), label: '60% from $9.99', color: muted, dash: [2, 3] } ] };
+  charts.pb.update('none');
+
+  // 2. eBook royalty vs price
+  const exs = priceRange(0.99, 14.99, 0.05, [R('eb70Min') - 0.01, R('eb70Min'), R('eb70Max'), R('eb70Max') + 0.01,
+    r.eb.max70ByPrint, r.eb.max70ByPrint + 0.01, inp.ebPrice]);
+  const d = r.eb.delivery;
+  charts.eb.data.datasets = [
+    { ...line('Your royalty (rules applied)', c1, { borderWidth: 2.5 }), data: exs.map(p => ({ x: p, y: ebookRoyalty(p, inp.pbPrice, inp.fileMB, inp.deliveryPerMB).royalty })) },
+    { ...line('35% option', c2, { borderDash: [5, 4], borderWidth: 1.5 }), data: exs.map(p => ({ x: p, y: roundCents(R('eb35Rate') * p) })) },
+    { ...line('70% option, if eligible', c3, { borderDash: [2, 3], borderWidth: 1.5 }),
+      data: exs.filter(p => p >= R('eb70Min') - EPS && p <= R('eb70Max') + EPS).map(p => ({ x: p, y: roundCents(R('eb70Rate') * (p - d)) })) },
+  ];
+  const ebLines = [{ x: inp.ebPrice, label: `current ${money(inp.ebPrice)}`, color: text, width: 2 }];
+  if (r.launch.active) ebLines.push({ x: inp.launchPrice, label: `launch ${money(inp.launchPrice)}`, color: muted, dash: [4, 3] });
+  charts.eb.options.plugins.markers = { lines: ebLines, bands: [
+    { from: R('eb70Min'), to: R('eb70Max'), color: css('--green-band'), label: '70% band' },
+    { from: r.eb.max70ByPrint + 0.005, to: 14.99, color: css('--red-band'), label: 'blocked by 20% rule' } ] };
+  charts.eb.update('none');
+
+  // 3. Print cost and minimum price vs pages
+  const ps = pageRange();
+  charts.pages.data.datasets = [
+    { ...line('Print cost', c1), data: ps.map(p => ({ x: p, y: printCost(p, inp.trim) })) },
+    { ...line('Minimum price (Amazon)', c2), data: ps.map(p => ({ x: p, y: pbMinPrice(printCost(p, inp.trim), false).amazon })) },
+    ...(inp.ed ? [{ ...line('Minimum price (with ED)', c3, { borderDash: [5, 4] }), data: ps.map(p => ({ x: p, y: pbMinPrice(printCost(p, inp.trim), true).min })) }] : []),
+  ];
+  charts.pages.options.plugins.markers = { bands: [], lines: [
+    { x: r.billed, label: `current ${r.billed}p`, color: text, width: 2 },
+    ...pageThresholdLines(muted) ] };
+  charts.pages.update('none');
+}
+
+// Each config gets its slot colour. Solid = main line, dashed = secondary (ED / minimum price).
+// Chart.js draws dataset 0 on top, so later slots get thicker lines: identical curves show as nested stripes.
+const SLOT_WIDTH = [1.75, 3.5, 5.5];
+function updateChartsCompare(cfgs) {
+  const muted = css('--muted');
+  const w = c => ({ borderWidth: SLOT_WIDTH[c.n - 1] });
+  const grp = (c, legendLabel) => ({ group: c.n, groupTitle: `${c.n}. ${c.name}`, legendLabel });
+
+  // 1. Paperback royalty vs price
+  const xs = priceRange(4, 15, 0.05, [R('pbRateThreshold') - 0.01, R('pbRateThreshold'), ...cfgs.flatMap(c => [c.inp.pbPrice, c.r.pb.min])]);
+  charts.pb.data.datasets = cfgs.flatMap(c => {
+    const ds = [{ ...line(`${c.n}. ${c.name}`, c.color, w(c)), ...grp(c, 'Amazon'), data: xs.map(p => ({ x: p, y: roundCents(pbRate(p) * p - c.r.pb.cost) })) }];
+    if (c.inp.ed) ds.push({ ...line(`${c.n}. ${c.name} · ED`, c.color, { borderDash: [5, 4], ...w(c) }), ...grp(c, 'Expanded Distribution'), data: xs.map(p => ({ x: p, y: roundCents(R('edRate') * p - c.r.pb.cost) })) });
+    return ds;
+  });
+  charts.pb.options.plugins.markers = { bands: [], lines: [
+    ...cfgs.map(c => ({ x: c.inp.pbPrice, label: `${c.n}: ${money(c.inp.pbPrice)}`, color: c.color, width: 2 })),
+    ...cfgs.map(c => ({ x: c.r.pb.min, label: `${c.n} min ${money(c.r.pb.min)}`, color: c.color, dash: [4, 3], width: 1 })),
+    { x: R('pbRateThreshold'), label: '60% from $9.99', color: muted, dash: [2, 3] } ] };
+  charts.pb.update('none');
+
+  // 2. eBook royalty vs price
+  const exs = priceRange(0.99, 14.99, 0.05, [R('eb70Min') - 0.01, R('eb70Min'), R('eb70Max'), R('eb70Max') + 0.01,
+    ...cfgs.flatMap(c => [c.r.eb.max70ByPrint, c.r.eb.max70ByPrint + 0.01, c.inp.ebPrice])]);
+  charts.eb.data.datasets = cfgs.map(c => ({ ...line(`${c.n}. ${c.name}`, c.color, w(c)), ...grp(c, 'royalty'),
+    data: exs.map(p => ({ x: p, y: ebookRoyalty(p, c.inp.pbPrice, c.inp.fileMB, c.inp.deliveryPerMB).royalty })) }));
+  charts.eb.options.plugins.markers = {
+    bands: [{ from: R('eb70Min'), to: R('eb70Max'), color: css('--green-band'), label: '70% band' }],
+    lines: [
+      ...cfgs.map(c => ({ x: c.inp.ebPrice, label: `${c.n}: ${money(c.inp.ebPrice)}`, color: c.color, width: 2 })),
+      ...cfgs.filter(c => c.r.eb.max70ByPrint < R('eb70Max')).map(c => ({ x: c.r.eb.max70ByPrint, label: `${c.n} 70% cap ${money(c.r.eb.max70ByPrint)}`, color: c.color, dash: [4, 3], width: 1 })) ] };
+  charts.eb.update('none');
+
+  // 3. Print cost and minimum price vs pages
+  const ps = pageRange();
+  charts.pages.data.datasets = cfgs.flatMap(c => [
+    { ...line(`${c.n}. ${c.name} · print cost`, c.color, w(c)), ...grp(c, 'print cost'), data: ps.map(p => ({ x: p, y: printCost(p, c.inp.trim) })) },
+    { ...line(`${c.n}. ${c.name} · min price${c.inp.ed ? ' (ED)' : ''}`, c.color, { borderDash: [5, 4], ...w(c) }), ...grp(c, `min price${c.inp.ed ? ' (ED)' : ''}`),
+      data: ps.map(p => ({ x: p, y: pbMinPrice(printCost(p, c.inp.trim), c.inp.ed).min })) },
+  ]);
+  charts.pages.options.plugins.markers = { bands: [], lines: [
+    ...cfgs.map(c => ({ x: c.r.billed, label: `${c.n}: ${c.r.billed}p`, color: c.color, width: 2 })),
+    ...pageThresholdLines(muted) ] };
+  charts.pages.update('none');
+}
+
+function pageRange() {
+  const ps = [];
+  for (let p = 24; p <= 300; p += 2) ps.push(p);
+  return ps;
+}
+const pageThresholdLines = muted => [
+  { x: R('printFlatMaxPages'), label: `${R('printFlatMaxPages')}p: per-page cost starts`, color: muted, dash: [2, 3] },
+  { x: R('spineTextMinPages'), label: `${R('spineTextMinPages')}p: spine text`, color: muted, dash: [2, 3] } ];
+
+function updateScenChart() {
+  if (!hasChart) return;
+  const all = [...caseRows(), ...scenRows()];
+  charts.scen.data.labels = all.map(s => s.name);
+  charts.scen.data.datasets[0].data = all.map(s => Math.round(s.r.proj.pbAmazon));
+  charts.scen.data.datasets[1].data = all.map(s => Math.round(s.r.proj.pbEd));
+  charts.scen.data.datasets[2].data = all.map(s => Math.round(s.r.proj.ebook));
+  charts.scen.update('none');
+}
+
+/* ---------- source links on input labels ---------- */
+function showTip(a, src) {
+  const tip = $('tip');
+  const host = document.querySelector('dialog[open]') || document.body;
+  if (tip.parentElement !== host) host.append(tip);
+  tip.replaceChildren(el('div', { text: src.tip() }));
+  if (src.url) tip.append(el('div', { class: 'tip-src', text: `Source: ${new URL(src.url).hostname} · click to open` }));
+  tip.hidden = false;
+  const r = a.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - tw - 8));
+  const below = r.bottom + 6 + th < window.innerHeight;
+  tip.style.left = left + 'px';
+  tip.style.top = (below ? r.bottom + 6 : r.top - th - 6) + 'px';
+}
+const hideTip = () => { $('tip').hidden = true; };
+
+function linkInputLabels() {
+  for (const [id, src] of Object.entries(INPUT_SOURCES)) {
+    const label = $(id).closest('label');
+    const host = label.classList.contains('check') ? label : label.querySelector('span');
+    const node = [...host.childNodes].find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+    if (!node) continue;
+    const raw = node.textContent;
+    const a = el('a', { class: 'srclink', href: src.url, target: '_blank', rel: 'noopener', text: raw.trim() });
+    a.addEventListener('mouseenter', () => showTip(a, src));
+    a.addEventListener('focus', () => showTip(a, src));
+    a.addEventListener('mouseleave', hideTip);
+    a.addEventListener('blur', hideTip);
+    node.replaceWith(raw.match(/^\s*/)[0], a, raw.match(/\s*$/)[0]);
+  }
+  window.addEventListener('scroll', hideTip, true);
+}
+
+/* ---------- scrubbing: drag the grip in a number field left or right (like Photoshop) ---------- */
+// With `stops` (prices), each step moves to the next allowed cents ending, e.g. X.25 → X.49 → X.79 → X.95 → (X+1).25,
+// plus any KDP rate thresholds in between. Shift adds or takes away exactly one dollar, so the ending stays the same.
+function stopValue(k, stops) { return Math.floor(k / stops.length) + stops[((k % stops.length) + stops.length) % stops.length]; }
+function stepThroughStops(v, n, stops) {
+  // k = the highest stop at or below v.
+  let k = Math.floor(v) * stops.length - 1;
+  while (stopValue(k + 1, stops) <= v + EPS) k++;
+  const onStop = Math.abs(stopValue(k, stops) - v) < EPS;
+  // Off the ladder, the first step down lands on k itself.
+  return stopValue(n > 0 || onStop ? k + n : k + n + 1, stops);
+}
+function nextPriceStop(v, dir, stops, extra) {
+  let cand = stepThroughStops(v, dir, stops);
+  for (const x of extra) if (dir > 0 ? (x > v + EPS && x < cand) : (x < v - EPS && x > cand)) cand = x;
+  return cand;
+}
+// `thresholds` ({ value, label, title, kind }) become extra stops, and the field is highlighted while it sits on one.
+// `min` and `thresholds` may be functions, for limits that depend on the other inputs (KDP's minimum price).
+// With `floorOnCommit`, a typed value below `min` is raised to it when the field is left or Enter is pressed.
+// Re-run after inputs change without an input event (switching cases).
+const scrubRefreshers = [];
+function makeScrubbable(input, { step, fastStep, min, max, pxPerStep = 4, decimals = 0, stops, thresholds = [], floorOnCommit = false, hint }) {
+  const lo = () => typeof min === 'function' ? min() : min;
+  const thr = () => typeof thresholds === 'function' ? thresholds() : thresholds;
+  const fmt = v => decimals ? v.toFixed(decimals) : String(v);
+  const grip = el('span', { class: 'scrub-grip', 'aria-hidden': 'true' });
+  grip.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M3 12h18"/></svg>';
+  const wrap = el('span', { class: 'scrub-wrap' });
+  input.replaceWith(wrap);
+  wrap.append(input, grip);
+  input.classList.add('scrubbable');
+  const pill = el('span', { class: 'threshold-pill', hidden: '' });
+  wrap.append(pill);
+  const markThreshold = () => {
+    const v = parseFloat(input.value);
+    const hit = thr().find(t => Math.abs(t.value - v) < EPS);
+    input.classList.toggle('at-threshold', !!hit && hit.kind !== 'floor');
+    input.classList.toggle('at-floor', !!hit && hit.kind === 'floor');
+    pill.hidden = !hit;
+    pill.classList.toggle('floor', !!hit && hit.kind === 'floor');
+    if (hit) { pill.textContent = hit.label; pill.title = hit.title; }
+  };
+  input.addEventListener('input', markThreshold);
+  scrubRefreshers.push(markThreshold);
+  if (floorOnCommit) input.addEventListener('change', () => {
+    const v = parseFloat(input.value), floor = lo();
+    if (isFinite(v) && v < floor - EPS) { input.value = fmt(floor); input.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
+  const tipText = hint || `Drag left or right to change by ${step}. Hold Shift for steps of ${fastStep}. You can also type a number or use the arrow keys.`;
+  const tip = { tip: () => tipText };
+  let dragging = false, lastX = 0, acc = 0;
+  grip.addEventListener('mouseenter', () => { if (!dragging) showTip(grip, tip); });
+  grip.addEventListener('mouseleave', hideTip);
+  grip.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    dragging = true; lastX = e.clientX; acc = 0;
+    grip.setPointerCapture(e.pointerId);
+    document.body.classList.add('scrubbing');
+    hideTip();
+  });
+  grip.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    acc += e.clientX - lastX; lastX = e.clientX;
+    const n = Math.trunc(acc / pxPerStep);
+    if (!n) return;
+    acc -= n * pxPerStep;
+    const cur = parseFloat(input.value) || 0;
+    let v;
+    if (stops && e.shiftKey) v = cur + n;
+    else if (stops) { v = cur; for (let i = 0; i < Math.abs(n); i++) v = nextPriceStop(v, Math.sign(n), stops, thr().map(t => t.value)); }
+    else v = Math.round((cur + n * (e.shiftKey ? fastStep : step)) / step) * step;
+    if (decimals) v = Number(v.toFixed(decimals));
+    v = Math.min(max, Math.max(lo(), v));
+    const text = fmt(v);
+    if (text !== input.value) { input.value = text; input.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
+  const end = () => { if (!dragging) return; dragging = false; document.body.classList.remove('scrubbing'); };
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+}
+
+/* ---------- collapsible sections (Warnings, Guidance): open or closed is remembered ---------- */
+const STORE_SECTIONS = 'kdpPlanner.sectionsOpen.v1';
+function initSectionToggles() {
+  const state = storeGet(STORE_SECTIONS, {}) || {};
+  for (const id of ['guideSec']) {
+    const d = $(id);
+    if (state[id] === false) d.open = false;
+    d.addEventListener('toggle', () => { state[id] = d.open; storeSet(STORE_SECTIONS, state); });
+  }
+}
+
+/* ---------- settings ---------- */
+const STORE_SETTINGS = 'kdpPlanner.settings.v1';
+let settings = { summaryWidth: '900px', baseline: 0, ...(storeGet(STORE_SETTINGS, {}) || {}) };
+if (![0, 1, 2].includes(settings.baseline)) settings.baseline = 0;
+function applySettings() {
+  document.documentElement.style.setProperty('--summary-max', settings.summaryWidth);
+  $('summaryWidth').value = settings.summaryWidth;
+  $('baselineCase').value = String(settings.baseline);
+}
+function initSettings() {
+  const dlg = $('settingsDialog');
+  $('settingsBtn').addEventListener('click', () => dlg.showModal());
+  $('settingsDone').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+  $('summaryWidth').addEventListener('change', e => { settings.summaryWidth = e.target.value; storeSet(STORE_SETTINGS, settings); applySettings(); });
+  $('baselineCase').addEventListener('change', e => { settings.baseline = Number(e.target.value); storeSet(STORE_SETTINGS, settings); update(); });
+  applySettings();
+}
+
+/* ---------- case editor modal ---------- */
+function openCase(i) {
+  selectCase(i);
+  const dlg = $('caseDialog');
+  if (!dlg.open) dlg.showModal();
+}
+function initCaseDialog() {
+  const dlg = $('caseDialog');
+  $('dlgDone').addEventListener('click', () => dlg.close());
+  // A click that lands on the dialog element itself is on the backdrop.
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener('close', hideTip);
+}
+
+/* ---------- main loop ---------- */
+function update() {
+  scrubRefreshers.forEach(f => f());
+  const inp = readInputs();
+  $('unitsPbEd').disabled = !inp.ed;
+  const r = compute(inp);
+  renderSummary();
+  renderSpine(r);
+  renderGuidance();
+  updateCharts(inp, r);
+  updateScenChart();
+  renderScenarios();
+}
+
+/* ---------- spot checks (run once on load; results in the console) ---------- */
+function runSpotChecks() {
+  const base = { pages: 130, trim: 'regular', paper: 'white', fileMB: 1, deliveryPerMB: R('ebDeliveryPerMB'), pbPrice: 7.95, ebPrice: 3.95,
+    ed: false, launchPrice: 0, launchDays: 0, unitsPbAmazon: 0, unitsPbEd: 0, unitsEb: 0, months: 12, authorQty: 0, authorShipTotal: 0 };
+  const r = compute(base);
+  const checks = [
+    ['130p regular print cost', r.pb.cost, 2.56],
+    ['130p min price, Amazon only', r.pb.amazon, 5.12],
+    ['130p min price, with ED', compute({ ...base, ed: true }).pb.min, 6.40],
+    ['110p print cost', printCost(110, 'regular'), 2.30],
+    ['$7.95 / 130p Amazon royalty', r.pb.royaltyAmazon, 1.42],
+    ['$7.95 / 130p ED royalty', r.pb.royaltyEd, 0.62],
+    ['$7.95 max eBook price for 70%', r.eb.max70, 6.36],
+    ['79p white spine (in)', Number(spineWidth(79, 'white').toFixed(3)), 0.178],
+  ];
+  const rows = checks.map(([name, got, want]) => ({ check: name, got, want, pass: Math.abs(got - want) < 1e-6 }));
+  console.table(rows);
+  const failed = rows.filter(x => !x.pass);
+  console.info(failed.length ? `KDP spot checks: ${failed.length} failed` : 'KDP spot checks: all passed');
+  return { rows, passed: failed.length === 0 };
+}
+window.runSpotChecks = runSpotChecks;
+
+/* ---------- init ---------- */
+(function init() {
+  writeInputs(cases[activeCase].inp);
+  $('caseName').value = cases[activeCase].name;
+  $('tagRoundEven').title = KDP_RULES.pageRoundEven.label + '. ' + KDP_RULES.pageRoundEven.note;
+  for (const id of INPUT_IDS) { $(id).addEventListener('input', onInputsChanged); $(id).addEventListener('change', onInputsChanged); }
+  $('caseName').addEventListener('input', onCaseNameChanged);
+  $('saveScen').addEventListener('click', saveScenario);
+  $('loadScen').addEventListener('change', e => { const sc = scenarios[Number(e.target.value)]; if (sc) loadIntoCase(sc); });
+  makeScrubbable($('pages'), { step: 2, fastStep: 10, min: R('printMinPages'), max: R('printMaxPages') });
+  const PRICE_STOPS = [0.25, 0.49, 0.79, 0.95];
+  const priceHint = 'Drag left or right to step through prices ending in .25, .49, .79 and .95, plus the prices where KDP\'s royalty rate changes (shown in green). Hold Shift to jump a whole dollar and keep the ending. You can also type any price.';
+  // KDP's minimum list prices are hard floors: they depend on page count, trim, Expanded Distribution and file size.
+  const pbFloor = () => compute(readInputs()).pb.min;
+  const ebFloor = () => compute(readInputs()).eb.minPrice;
+  makeScrubbable($('pbPrice'), { stops: PRICE_STOPS, min: pbFloor, max: R('pbMaxPrice'), pxPerStep: 8, decimals: 2, hint: priceHint, floorOnCommit: true,
+    thresholds: () => [
+      { value: pbFloor(), kind: 'floor', label: 'KDP min', title: `Lowest list price KDP accepts for this book (${compute(readInputs()).pb.reason})` },
+      { value: R('pbRateThreshold'), label: `${pct(R('pbRateHigh'))} rate`, title: `Lowest price that earns KDP's ${pct(R('pbRateHigh'))} paperback rate` } ] });
+  makeScrubbable($('ebPrice'), { stops: PRICE_STOPS, min: ebFloor, max: R('ebMaxPrice'), pxPerStep: 8, decimals: 2, hint: priceHint, floorOnCommit: true,
+    thresholds: () => [
+      { value: ebFloor(), kind: 'floor', label: 'KDP min', title: `Lowest list price KDP accepts for a ${num('fileMB')} MB eBook` },
+      { value: R('eb70Min'), label: '70% min', title: 'Lowest price that can earn the 70% eBook rate' },
+      { value: R('eb70Max'), label: '70% max', title: 'Highest price that can earn the 70% eBook rate' } ] });
+  $('exportCsv').addEventListener('click', exportCsv);
+  document.querySelectorAll('i[data-fmt]').forEach(i => i.replaceWith(fmtIcon(i.dataset.fmt)));
+  renderRules();
+  initSectionToggles();
+  initCaseDialog();
+  initSettings();
+  linkInputLabels();
+  buildCharts();
+  applyChartVisibility();
+  document.addEventListener('click', e => { const m = document.querySelector('.compare-bar .menu'); if (m && m.open && !m.contains(e.target)) m.open = false; });
+  renderCaseTabs();
+  update();
+  initHistory();
+  runSpotChecks();
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { buildCharts(); update(); });
+  } catch (e) { /* older browsers: charts keep their colors until reload */ }
+})();
+</script>
+</body>
+</html>
