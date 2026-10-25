@@ -111,6 +111,12 @@
     list-style-position: inside;
   }
   .panel-body { padding: 2px 14px 12px; }
+  button.link-btn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-weight: 400; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  button.link-btn:hover { text-decoration-thickness: 2px; }
+  details.panel > summary .apply-all { float: right; font-size: 12px; line-height: 21px; }
+  .confirm-dialog { width: min(440px, calc(100vw - 32px)); }
+  .confirm-dialog p { margin: 0 0 14px; }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .note { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
   label.field { display: block; margin: 8px 0; }
   label.field > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
@@ -343,6 +349,17 @@
   </div>
 </dialog>
 
+<dialog id="confirmDialog" class="case-dialog confirm-dialog" aria-labelledby="confirmTitle">
+  <form method="dialog" class="dlg-inner">
+    <h2 id="confirmTitle" style="margin:0 0 10px">Apply to all cases?</h2>
+    <p id="confirmText"></p>
+    <div class="confirm-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button class="primary" value="ok" type="submit" id="confirmOk">Apply to all cases</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="layout">
   <dialog id="caseDialog" class="case-dialog" aria-label="Edit cases">
    <div class="dlg-inner">
@@ -371,7 +388,7 @@
     </div>
 
     <details class="panel" open>
-      <summary>Book</summary>
+      <summary>Book<button class="link-btn apply-all" type="button" data-group="book">Apply to all cases</button></summary>
       <div class="panel-body">
         <label class="field"><span>Page count <span class="tag" id="tagRoundEven" title="">unverified</span></span>
           <input type="number" id="pages" min="1" max="828" step="1" value="130"></label>
@@ -396,7 +413,7 @@
     </details>
 
     <details class="panel" open>
-      <summary>Prices</summary>
+      <summary>Prices<button class="link-btn apply-all" type="button" data-group="prices">Apply to all cases</button></summary>
       <div class="panel-body">
         <div class="row2">
           <label class="field"><span><i data-fmt="paperback"></i>Paperback price ($)</span>
@@ -416,7 +433,7 @@
     </details>
 
     <details class="panel" open>
-      <summary>Sales estimates</summary>
+      <summary>Sales estimates<button class="link-btn apply-all" type="button" data-group="sales">Apply to all cases</button></summary>
       <div class="panel-body">
         <p class="note">These are guesses. Use them to compare scenarios, not to predict income.</p>
         <p class="note" style="margin-bottom:0"><i data-fmt="paperback"></i>Paperback units per month</p>
@@ -436,7 +453,7 @@
     </details>
 
     <details class="panel" open>
-      <summary>Author copies</summary>
+      <summary>Author copies<button class="link-btn apply-all" type="button" data-group="author">Apply to all cases</button></summary>
       <div class="panel-body">
         <div class="row2">
           <label class="field"><span>Quantity</span>
@@ -1244,6 +1261,35 @@ function resetCase() {
   commitHistory();
 }
 
+/* ---------- apply a panel's inputs to every case ---------- */
+const APPLY_GROUPS = {
+  book: { label: 'Book settings', ids: ['pages', 'trim', 'paper', 'fileMB', 'deliveryPerMB'],
+    describe: i => `${i.pages} pages, ${i.trim === 'large' ? 'large' : 'regular'} trim, ${i.paper} paper, ${i.fileMB} MB eBook file at ${money(i.deliveryPerMB)}/MB` },
+  prices: { label: 'prices', ids: ['pbPrice', 'ebPrice', 'ed', 'launchPrice', 'launchDays'],
+    describe: i => `${money(i.pbPrice)} paperback, ${money(i.ebPrice)} eBook, Expanded Distribution ${i.ed ? 'on' : 'off'}, ` +
+      (i.launchPrice ? `${money(i.launchPrice)} launch price for ${i.launchDays} days` : 'no launch price') },
+  sales: { label: 'sales estimates', ids: ['unitsPbAmazon', 'unitsPbEd', 'unitsEb', 'months'],
+    describe: i => `${i.unitsPbAmazon} paperbacks on Amazon, ${i.unitsPbEd} through Expanded Distribution and ${i.unitsEb} eBooks a month, over ${i.months} months` },
+  author: { label: 'author copies', ids: ['authorQty', 'authorShipTotal'],
+    describe: i => `${i.authorQty} copies, ` + (i.authorShipTotal ? `${money(i.authorShipTotal)} order shipping` : 'no shipping estimate') },
+};
+function applyToAll(key) {
+  const g = APPLY_GROUPS[key], src = cases[activeCase].inp;
+  $('confirmText').textContent = `This will apply Case ${activeCase + 1}'s ${g.label} (${g.describe(src)}) to all 3 cases. ` +
+    'Their other inputs stay as they are. You can undo this. Proceed?';
+  const dlg = $('confirmDialog');
+  dlg.returnValue = '';
+  dlg.addEventListener('close', () => {
+    if (dlg.returnValue !== 'ok') return;
+    if (undoHistory.timer) commitHistory();
+    const vals = Object.fromEntries(g.ids.map(id => [id, src[id]]));
+    cases.forEach(c => { c.inp = { ...c.inp, ...vals }; });
+    saveCases(); update(); commitHistory();
+  }, { once: true });
+  dlg.showModal();
+  $('confirmOk').focus();
+}
+
 /* ---------- undo / redo: snapshots of every case and saved scenario ----------
    Typing and dragging are grouped: a snapshot is taken once edits pause for half a second.
    Switching tabs isn't an edit; undo jumps to the case that changed so you can see it. */
@@ -1832,6 +1878,10 @@ function initCaseDialog() {
   // A click that lands on the dialog element itself is on the backdrop.
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
   dlg.addEventListener('close', hideTip);
+  // The link sits in the panel's <summary>, so keep the click from also collapsing the panel.
+  for (const b of document.querySelectorAll('.apply-all')) b.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation(); applyToAll(b.dataset.group);
+  });
 }
 
 /* ---------- main loop ---------- */
