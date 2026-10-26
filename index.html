@@ -82,7 +82,7 @@
   .dlg-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .dlg-bar h2 { margin: 0; }
   .dlg-bar .note { margin: 0; }
-  .dlg-bar button { margin-left: auto; }
+  .dlg-bar > button { margin-left: auto; }
   .dlg-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; align-items: start; }
   .dlg-body .case-bar { grid-column: 1 / -1; margin-bottom: 0; }
   .dlg-body details.panel { margin-bottom: 0; }
@@ -113,10 +113,20 @@
   .panel-body { padding: 2px 14px 12px; }
   button.link-btn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-weight: 400; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
   button.link-btn:hover { text-decoration-thickness: 2px; }
-  details.panel > summary .apply-all { float: right; font-size: 12px; line-height: 21px; }
-  .confirm-dialog { width: min(440px, calc(100vw - 32px)); }
-  .confirm-dialog p { margin: 0 0 14px; }
-  .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  details.panel > summary .panel-link { float: right; font-size: 12px; line-height: 21px; }
+  /* The editor edits one case or the defaults for all cases; data-mode on the dialog picks which parts show. */
+  #caseDialog[data-mode="defaults"] .case-only, #caseDialog[data-mode="case"] .defaults-only { display: none; }
+  /* A case's own value (overriding the default) gets a bar in the case's colour. */
+  label.overridden input:not([type=checkbox]), label.overridden select { border-color: var(--case); box-shadow: inset 3px 0 0 var(--case); }
+  label.check.overridden input { outline: 2px solid var(--case); outline-offset: 1px; }
+  .ovr { display: block; font-size: 11px; line-height: 1.3; margin-top: 1px; }
+  label.check .ovr { margin: 0 0 0 auto; }
+  .ovr:empty { display: none; }
+  /* In the defaults, a value no case uses. */
+  label.unused input, label.unused select { opacity: 0.55; }
+  .ovr button.link-btn { color: var(--muted); }
+  .ovr button.link-btn:hover { color: var(--text); }
+  .ovr .own { color: var(--muted); font-style: italic; }
   .note { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
   label.field { display: block; margin: 8px 0; }
   label.field > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
@@ -204,10 +214,22 @@
      Every block is its own table with the same fixed column widths, so the columns line up across the gaps. */
   #summarySection { max-width: var(--summary-max, 900px); margin-left: auto; margin-right: auto; }
   .sum-note { margin: -4px 0 8px; }
+  .sum-title { display: flex; align-items: baseline; gap: 12px; }
+  .sum-title button { margin-left: auto; }
+  .sum-body { margin-top: 8px; }
+  /* Quick-edit fields under each case heading: page count and both prices on one line. */
+  table.sum tr.quick-row > * { padding-top: 4px; }
+  .quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .quick label { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; font-size: 11px; color: var(--muted); }
+  .quick label span { overflow: hidden; text-overflow: ellipsis; }
+  .quick input { padding: 4px 5px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; appearance: textfield; -moz-appearance: textfield; }
+  .quick input::-webkit-inner-spin-button, .quick input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  button.more-link { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); text-align: left; }
+  button.more-link:hover { color: var(--text); }
   .inline-select { width: auto; display: inline-block; padding: 1px 4px; font-size: 12px; }
   table.sum th.case .base-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 0 5px; margin-right: 6px; vertical-align: 1px; }
   .sum-wrap { overflow-x: auto; }
-  .sum-wrap > * { min-width: 600px; }
+  .sum-wrap > * { min-width: 760px; }
   .sum-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .sum-block + .sum-block { margin-top: 8px; }
   table.sum { border-collapse: collapse; width: 100%; table-layout: fixed; font-variant-numeric: tabular-nums; }
@@ -349,32 +371,23 @@
   </div>
 </dialog>
 
-<dialog id="confirmDialog" class="case-dialog confirm-dialog" aria-labelledby="confirmTitle">
-  <form method="dialog" class="dlg-inner">
-    <h2 id="confirmTitle" style="margin:0 0 10px">Apply to all cases?</h2>
-    <p id="confirmText"></p>
-    <div class="confirm-actions">
-      <button value="cancel" type="submit">Cancel</button>
-      <button class="primary" value="ok" type="submit" id="confirmOk">Apply to all cases</button>
-    </div>
-  </form>
-</dialog>
-
 <div class="layout">
-  <dialog id="caseDialog" class="case-dialog" aria-label="Edit cases">
+  <dialog id="caseDialog" class="case-dialog" data-mode="case" aria-labelledby="dlgTitle">
    <div class="dlg-inner">
     <div class="dlg-bar">
-      <h2>Edit cases</h2>
-      <span class="note">Changes apply as you type. Press Esc or Done to close.</span>
+      <h2 id="dlgTitle">Edit cases</h2>
+      <span class="note case-only">Values you change here are this case's own; the rest follow the
+        <button class="link-btn" id="toDefaults" type="button">defaults for all cases</button>.</span>
+      <span class="note defaults-only">Every case uses these values unless it sets its own. Changes apply as you type.</span>
       <button class="primary" id="dlgDone" type="button">Done</button>
     </div>
     <div class="dlg-body">
     <div class="case-bar">
-      <div class="case-tabs" role="tablist" id="caseTabs" aria-label="Cases"></div>
+      <div class="case-tabs case-only" role="tablist" id="caseTabs" aria-label="Cases"></div>
       <div class="case-panel">
-        <label class="field"><span>Case name</span>
+        <label class="field case-only"><span>Case name</span>
           <input type="text" id="caseName" maxlength="40"></label>
-        <div class="case-actions">
+        <div class="case-actions case-only">
           <button id="saveScen" title="Keep a copy of this case's inputs under its name">Save as scenario</button>
           <select id="loadScen" aria-label="Load a saved scenario into this case"></select>
         </div>
@@ -388,7 +401,7 @@
     </div>
 
     <details class="panel" open>
-      <summary>Book<button class="link-btn apply-all" type="button" data-group="book">Apply to all cases</button></summary>
+      <summary>Book<button class="link-btn panel-link use-defaults case-only" type="button" data-group="book" title="Use the defaults for all cases for every input in this panel">Use defaults</button></summary>
       <div class="panel-body">
         <label class="field"><span>Page count <span class="tag" id="tagRoundEven" title="">unverified</span></span>
           <input type="number" id="pages" min="1" max="828" step="1" value="130"></label>
@@ -413,7 +426,7 @@
     </details>
 
     <details class="panel" open>
-      <summary>Prices<button class="link-btn apply-all" type="button" data-group="prices">Apply to all cases</button></summary>
+      <summary>Prices<button class="link-btn panel-link use-defaults case-only" type="button" data-group="prices" title="Use the defaults for all cases for every input in this panel">Use defaults</button></summary>
       <div class="panel-body">
         <div class="row2">
           <label class="field"><span><i data-fmt="paperback"></i>Paperback price ($)</span>
@@ -433,7 +446,7 @@
     </details>
 
     <details class="panel" open>
-      <summary>Sales estimates<button class="link-btn apply-all" type="button" data-group="sales">Apply to all cases</button></summary>
+      <summary>Sales estimates<button class="link-btn panel-link use-defaults case-only" type="button" data-group="sales" title="Use the defaults for all cases for every input in this panel">Use defaults</button></summary>
       <div class="panel-body">
         <p class="note">These are guesses. Use them to compare scenarios, not to predict income.</p>
         <p class="note" style="margin-bottom:0"><i data-fmt="paperback"></i>Paperback units per month</p>
@@ -453,7 +466,7 @@
     </details>
 
     <details class="panel" open>
-      <summary>Author copies<button class="link-btn apply-all" type="button" data-group="author">Apply to all cases</button></summary>
+      <summary>Author copies<button class="link-btn panel-link use-defaults case-only" type="button" data-group="author" title="Use the defaults for all cases for every input in this panel">Use defaults</button></summary>
       <div class="panel-body">
         <div class="row2">
           <label class="field"><span>Quantity</span>
@@ -469,10 +482,11 @@
 
   <main>
     <section id="summarySection">
-      <h2>Summary</h2>
+      <div class="sum-title"><h2>Summary</h2>
+        <button class="small" id="openDefaults" type="button" title="Inputs every case uses unless it sets its own">Defaults for all cases…</button></div>
       <p class="note sum-note">Small figures show the difference from
         <select id="baselineCase" class="inline-select" aria-label="Case to compare against"><option value="0">Case 1</option><option value="1">Case 2</option><option value="2">Case 3</option></select>.
-        Click a case's heading to edit its inputs.</p>
+        Click a case's heading to edit all its inputs.</p>
       <div class="sum-wrap" id="summary"></div>
     </section>
 
@@ -1034,22 +1048,93 @@ function summarySections(anyEd, anyLaunch) {
   ];
 }
 
+/* Quick-edit fields under each case heading. Arrow keys step like the editor's drag grips:
+   2 pages (Shift: 10), or through prices ending .25/.49/.79/.95 and KDP's rate steps (Shift: a whole dollar). */
+const QUICK_FIELDS = [
+  { id: 'pages', label: 'Pages', decimals: 0 },
+  { id: 'pbPrice', label: 'Paperback', decimals: 2 },
+  { id: 'ebPrice', label: 'eBook', decimals: 2 },
+];
+const priceFloor = (id, inp) => { const r = compute(inp); return id === 'pbPrice' ? r.pb.min : r.eb.minPrice; };
+function quickStep(i, f, dir, fast) {
+  const inp = cases[i].inp;
+  let v = inp[f.id];
+  if (f.id === 'pages') v = Math.min(R('printMaxPages'), Math.max(R('printMinPages'), Math.round((v + dir * (fast ? 10 : 2)) / 2) * 2));
+  else {
+    const floor = priceFloor(f.id, inp);
+    const extra = f.id === 'pbPrice' ? [floor, R('pbRateThreshold')] : [floor, R('eb70Min'), R('eb70Max')];
+    v = fast ? v + dir : nextPriceStop(v, dir, PRICE_STOPS, extra);
+    v = Number(Math.min(R(f.id === 'pbPrice' ? 'pbMaxPrice' : 'ebMaxPrice'), Math.max(floor, v)).toFixed(2));
+  }
+  return v;
+}
+function quickField(i, f) {
+  const input = el('input', { type: 'number', inputmode: f.decimals ? 'decimal' : 'numeric', min: '0', step: f.decimals ? '0.01' : '1',
+    'aria-label': `Case ${i + 1} ${f.label.toLowerCase()}${f.decimals ? ' price' : ''}` });
+  const show = v => { input.value = f.decimals ? v.toFixed(2) : String(v); };
+  input.addEventListener('input', () => { const v = parseFloat(input.value); if (isFinite(v)) setCaseValue(i, f.id, v); });
+  // On leaving the field: KDP's minimum list price is a hard floor, as in the editor.
+  input.addEventListener('change', () => {
+    let v = parseFloat(input.value);
+    if (!isFinite(v)) v = cases[i].inp[f.id];
+    if (f.decimals) v = Math.max(v, priceFloor(f.id, cases[i].inp));
+    show(v);
+    if (v !== cases[i].inp[f.id]) setCaseValue(i, f.id, v);
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const v = quickStep(i, f, e.key === 'ArrowUp' ? 1 : -1, e.shiftKey);
+    show(v); setCaseValue(i, f.id, v);
+  });
+  return { f, input, show };
+}
+
+// The header block is built once and updated in place, so a quick-edit field keeps focus while the summary redraws.
+let sumHead = null;
+function buildSummaryHead(colgroup) {
+  const headRow = el('tr');
+  const quickRow = el('tr', { class: 'quick-row' }, el('th', { class: 'sec' }), el('th', { class: 'rl', text: 'Page count and prices' }));
+  const quick = cases.map((c, i) => {
+    const fields = QUICK_FIELDS.map(f => quickField(i, f));
+    const cell = el('td', null,
+      el('div', { class: 'quick' }, ...fields.map(q => el('label', { title: `Case ${i + 1}'s own value` }, el('span', { text: q.f.label }), q.input))),
+      el('button', { class: 'link-btn more-link', type: 'button', text: 'More edit options', onclick: () => openCase(i) }));
+    quickRow.append(cell);
+    return { cell, fields };
+  });
+  const block = el('div', { class: 'sum-block' }, el('table', { class: 'sum head' }, colgroup(), el('tbody', null, headRow, quickRow)));
+  const body = el('div', { class: 'sum-body' });
+  $('summary').append(block, body);
+  sumHead = { headRow, quick, body };
+}
+
 function renderSummary() {
-  const wrap = $('summary'); wrap.replaceChildren();
   const cols = cases.map((c, i) => ({ i, name: caseTitle(i), inp: c.inp, r: compute(c.inp), color: `var(${CASE_COLORS[i]})` }));
   const colgroup = () => el('colgroup', null, el('col', { class: 'c-sec' }), el('col', { class: 'c-label' }), ...cols.map(() => el('col')));
+  if (!sumHead) buildSummaryHead(colgroup);
+  const wrap = sumHead.body; wrap.replaceChildren();
   const block = (cls, ...rows) => el('div', { class: 'sum-block' }, el('table', { class: 'sum ' + cls }, colgroup(), el('tbody', null, ...rows)));
   const caseCell = (c, extra = {}) => el('td', { class: c.i === activeCase ? 'active' : '', style: `--case:${c.color}`, ...extra });
 
   // Differences are shown against the baseline case chosen above the table (Case 1 unless changed).
   const baseIdx = settings.baseline;
   [...$('baselineCase').options].forEach((o, i) => { o.textContent = `Case ${i + 1}: ${caseTitle(i)}`; });
-  const head = el('tr', null, el('th', { class: 'sec' }), el('th', { class: 'rl' }));
+  const head = sumHead.headRow;
+  head.replaceChildren(el('th', { class: 'sec' }), el('th', { class: 'rl' }));
   cols.forEach(c => head.append(el('th', {
     class: 'case' + (c.i === activeCase ? ' active' : ''), style: `--case:${c.color}`, title: `Edit Case ${c.i + 1}'s inputs`, onclick: () => openCase(c.i) },
     c.i === baseIdx ? el('span', { class: 'base-tag', title: 'Other cases show their difference from this one', text: 'baseline' }) : null,
     `Case ${c.i + 1} `, el('span', { class: 'edit', text: '✎' }), el('span', { class: 'nm', text: c.name }))));
-  wrap.append(block('head', head));
+  sumHead.quick.forEach((q, i) => {
+    q.cell.className = i === activeCase ? 'active' : '';
+    q.cell.style.setProperty('--case', cols[i].color);
+    for (const { f, input, show } of q.fields) {
+      const v = cols[i].inp[f.id];
+      // Leave a field alone while it's being typed in, unless its value really changed (undo).
+      if (!(document.activeElement === input && parseFloat(input.value) === v)) show(v);
+    }
+  });
 
   const fmtDelta = (d, fmt) => (d > 0 ? '+' : '−') + fmt(Math.abs(d)).replace('−', '');
   for (const sec of summarySections(cols.some(c => c.inp.ed), cols.some(c => c.r.launch.active))) {
@@ -1200,25 +1285,54 @@ const SCEN_COLS = [
 const scenRows = () => scenarios.map(sc => ({ name: sc.name, inp: sc.inp, r: compute(sc.inp) }));
 const caseRows = () => cases.map((c, i) => ({ name: `Case ${i + 1}: ${c.name}`, inp: c.inp, r: compute(c.inp) }));
 
-/* ---------- cases: three tabs of inputs; the active one drives the summary, warnings and guidance ---------- */
-const STORE_CASES = 'kdpPlanner.cases.v1';
+/* ---------- cases: defaults for all cases, plus three cases that set their own value for some inputs ----------
+   The active case is the one the editor last showed. */
+const STORE_CASES_V1 = 'kdpPlanner.cases.v1';
+const STORE_CASES = 'kdpPlanner.cases.v2';
 const STORE_ACTIVE = 'kdpPlanner.activeCase.v1';
 const STORE_SHOWN = 'kdpPlanner.casesOnCharts.v1';
 const CASE_COLORS = ['--slot1', '--slot2', '--slot3'];
-const CASE_BASE = { pages: 130, trim: 'regular', paper: 'white', fileMB: 1, deliveryPerMB: R('ebDeliveryPerMB'), ed: false,
-  launchPrice: 0, launchDays: 0, unitsPbAmazon: 20, unitsPbEd: 0, unitsEb: 30, months: 12, authorQty: 100, authorShipTotal: 0 };
-// Starting points only: a low, a middle and a higher price. Sales guesses fall a little as price rises.
+const CASE_DEFAULTS = { pages: 130, trim: 'regular', paper: 'white', fileMB: 1, deliveryPerMB: R('ebDeliveryPerMB'), pbPrice: 9.99, ebPrice: 4.99, ed: false,
+  launchPrice: 0, launchDays: 0, unitsPbAmazon: 20, unitsPbEd: 4, unitsEb: 30, months: 12, authorQty: 100, authorShipTotal: 0 };
+// Starting points only: a low, a middle and a higher price. Everything else follows the defaults.
 const CASE_PRESETS = [
-  { name: 'Low price', inp: { ...CASE_BASE, pbPrice: 7.95, ebPrice: 3.99, unitsPbAmazon: 25, unitsEb: 40 } },
-  { name: '$9.99 paperback', inp: { ...CASE_BASE, pbPrice: 9.99, ebPrice: 4.99, unitsPbAmazon: 20, unitsEb: 30 } },
-  { name: 'Wide reach', inp: { ...CASE_BASE, pbPrice: 11.99, ebPrice: 5.99, ed: true, unitsPbAmazon: 16, unitsPbEd: 4, unitsEb: 25 } },
+  { name: 'Low price', over: { pbPrice: 7.95, ebPrice: 3.99 } },
+  { name: '$9.99 paperback', over: { pbPrice: 9.99, ebPrice: 4.99 } },
+  { name: 'Wide reach', over: { pbPrice: 11.99, ebPrice: 5.99, ed: true } },
 ];
-let cases = storeGet(STORE_CASES, null);
-if (!Array.isArray(cases) || cases.length !== 3 || !cases.every(c => c && typeof c.inp === 'object'))
-  cases = JSON.parse(JSON.stringify(CASE_PRESETS));
-cases = cases.map(c => ({ name: String(c.name || ''), inp: { ...CASE_BASE, ...c.inp } }));
-// The case 3 preset was renamed; update copies still carrying the old default name.
-cases.forEach(c => { if (c.name === 'Wide distribution') c.name = 'Wide reach'; });
+// A case's inputs are the defaults with its own values (`over`) on top. `inp` lives on the prototype, so it isn't saved.
+const CaseProto = { get inp() { return { ...defaults, ...this.over }; } };
+const makeCase = (name, over) => Object.assign(Object.create(CaseProto), { name: String(name || ''), over: { ...over } });
+const sameVal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const diffFromDefaults = inp => Object.fromEntries(INPUT_IDS.filter(id => !sameVal(inp[id], defaults[id])).map(id => [id, inp[id]]));
+let defaults, cases;
+(function loadCases() {
+  const saved = storeGet(STORE_CASES, null);
+  if (saved && typeof saved.defaults === 'object' && Array.isArray(saved.cases) && saved.cases.length === 3 && saved.cases.every(c => c && typeof c.over === 'object')) {
+    defaults = { ...CASE_DEFAULTS, ...saved.defaults };
+    cases = saved.cases.map(c => makeCase(c.name, c.over));
+    return;
+  }
+  // Cases saved before defaults existed hold every input. For each one, the value most cases share becomes
+  // the default and a case keeps its own value only where it differs. When all three differ, Case 1's
+  // value is the default and every case keeps its own.
+  const old = storeGet(STORE_CASES_V1, null);
+  if (Array.isArray(old) && old.length === 3 && old.every(c => c && typeof c.inp === 'object')) {
+    const full = old.map(c => ({ ...CASE_DEFAULTS, ...c.inp }));
+    const split = [];
+    defaults = Object.fromEntries(INPUT_IDS.map(id => {
+      const vals = full.map(f => f[id]);
+      const shared = vals.find(v => vals.filter(w => sameVal(v, w)).length >= 2);
+      if (shared === undefined) split.push(id);
+      return [id, shared ?? vals[0]];
+    }));
+    cases = old.map((c, i) => makeCase(c.name === 'Wide distribution' ? 'Wide reach' : c.name,
+      { ...diffFromDefaults(full[i]), ...Object.fromEntries(split.map(id => [id, full[i][id]])) }));
+    return;
+  }
+  defaults = { ...CASE_DEFAULTS };
+  cases = CASE_PRESETS.map(p => makeCase(p.name, p.over));
+})();
 let activeCase = Number(storeGet(STORE_ACTIVE, 0));
 if (![0, 1, 2].includes(activeCase)) activeCase = 0;
 let casesShown = storeGet(STORE_SHOWN, [true, true, true]);
@@ -1238,63 +1352,100 @@ function selectCase(i) {
   // Record a pending edit under the case it was made in, so undo can jump back to it.
   if (undoHistory.timer) commitHistory();
   activeCase = i; storeSet(STORE_ACTIVE, i);
-  writeInputs(cases[i].inp);
-  $('caseName').value = cases[i].name;
-  renderCaseTabs();
+  refreshForm();
   update();
 }
-function saveCases() { storeSet(STORE_CASES, cases); }
-function onInputsChanged() { cases[activeCase].inp = readInputs(); saveCases(); update(); commitSoon(); }
+function saveCases() { storeSet(STORE_CASES, { defaults, cases }); }
+
+/* The editor's form shows either the active case or the defaults for all cases (formMode).
+   In a case, any input you change becomes that case's own value; "default …" next to it goes back to the default. */
+let formMode = 'case';
+function refreshForm() {
+  const dlg = $('caseDialog'), isDef = formMode === 'defaults';
+  dlg.dataset.mode = formMode;
+  dlg.style.setProperty('--case', `var(${CASE_COLORS[activeCase]})`);
+  $('dlgTitle').textContent = isDef ? 'Defaults for all cases' : 'Edit cases';
+  writeInputs(isDef ? defaults : cases[activeCase].inp);
+  $('caseName').value = cases[activeCase].name;
+  $('resetCase').textContent = isDef ? 'Reset defaults' : 'Reset case';
+  $('resetCase').title = isDef ? 'Put the defaults back to their starting values. You can undo this.'
+    : "Put this case back to its starting name and values. You can undo this.";
+  renderCaseTabs();
+  renderOverrideMarks();
+}
+const FIELD_GROUPS = {
+  book: ['pages', 'trim', 'paper', 'fileMB', 'deliveryPerMB'],
+  prices: ['pbPrice', 'ebPrice', 'ed', 'launchPrice', 'launchDays'],
+  sales: ['unitsPbAmazon', 'unitsPbEd', 'unitsEb', 'months'],
+  author: ['authorQty', 'authorShipTotal'],
+};
+function fieldText(id, v) {
+  if (id === 'ed') return v ? 'on' : 'off';
+  if (['launchPrice', 'launchDays', 'authorShipTotal'].includes(id) && !v) return 'none';
+  if (['pbPrice', 'ebPrice', 'deliveryPerMB', 'launchPrice', 'authorShipTotal'].includes(id)) return money(v);
+  if (id === 'fileMB') return v + ' MB';
+  return String(v);
+}
+function renderOverrideMarks() {
+  const own = cases[activeCase].over;
+  for (const id of INPUT_IDS) {
+    const label = $(id).closest('label');
+    const host = label.classList.contains('check') ? label : label.querySelector('span');
+    let mark = host.querySelector('.ovr');
+    if (!mark) { mark = el('span', { class: 'ovr' }); host.append(mark); }
+    mark.replaceChildren();
+    const nums = cases.map((c, i) => id in c.over ? i + 1 : 0).filter(Boolean);
+    label.classList.toggle('overridden', formMode === 'case' && id in own);
+    label.classList.toggle('unused', formMode === 'defaults' && nums.length === cases.length);
+    if (formMode === 'case' && id in own) {
+      mark.append(el('button', { class: 'link-btn', type: 'button', text: `↺ Use default (${fieldText(id, defaults[id])})`,
+        title: `Case ${activeCase + 1} has its own value. Click to use the default for all cases instead.`,
+        onclick: e => { e.preventDefault(); useDefaults([id]); } }));
+    } else if (formMode === 'defaults' && nums.length) {
+      const text = nums.length === cases.length ? 'All cases set their own' : `Case ${nums.join(' and ')} ${nums.length > 1 ? 'set their own' : 'sets its own'}`;
+      mark.append(el('span', { class: 'own', text, title: "Changing the default doesn't affect a case that sets its own value." }));
+    }
+  }
+  for (const b of document.querySelectorAll('.use-defaults')) b.hidden = !FIELD_GROUPS[b.dataset.group].some(id => id in own);
+}
+function onFieldInput(e) {
+  const id = e.target.id, v = readInputs()[id];
+  if (formMode === 'defaults') defaults[id] = v; else cases[activeCase].over[id] = v;
+  saveCases(); renderOverrideMarks(); update(); commitSoon();
+}
+// Edits from outside the form (quick-edit fields, guidance buttons) set a case's own value.
+function setCaseValue(i, id, v) {
+  cases[i].over[id] = v;
+  if (formMode === 'case' && i === activeCase) refreshForm();
+  saveCases(); update(); commitSoon();
+}
+function useDefaults(ids) {
+  if (undoHistory.timer) commitHistory();
+  for (const id of ids) delete cases[activeCase].over[id];
+  saveCases(); refreshForm(); update(); commitHistory();
+}
 function onCaseNameChanged() {
   cases[activeCase].name = $('caseName').value;
   saveCases(); renderCaseTabs(); renderScenarios(); update(); commitSoon();
 }
 function applyPrices(pb, eb, i = activeCase) {
-  cases[i].inp = { ...cases[i].inp, pbPrice: pb, ebPrice: eb };
-  if (i === activeCase) writeInputs(cases[i].inp);
+  Object.assign(cases[i].over, { pbPrice: pb, ebPrice: eb });
+  if (formMode === 'case' && i === activeCase) refreshForm();
   saveCases(); update(); commitHistory();
 }
 function resetCase() {
-  cases[activeCase] = JSON.parse(JSON.stringify(CASE_PRESETS[activeCase]));
+  if (formMode === 'defaults') defaults = { ...CASE_DEFAULTS };
+  else cases[activeCase] = makeCase(CASE_PRESETS[activeCase].name, CASE_PRESETS[activeCase].over);
   saveCases();
   selectCase(activeCase);
   commitHistory();
-}
-
-/* ---------- apply a panel's inputs to every case ---------- */
-const APPLY_GROUPS = {
-  book: { label: 'Book settings', ids: ['pages', 'trim', 'paper', 'fileMB', 'deliveryPerMB'],
-    describe: i => `${i.pages} pages, ${i.trim === 'large' ? 'large' : 'regular'} trim, ${i.paper} paper, ${i.fileMB} MB eBook file at ${money(i.deliveryPerMB)}/MB` },
-  prices: { label: 'prices', ids: ['pbPrice', 'ebPrice', 'ed', 'launchPrice', 'launchDays'],
-    describe: i => `${money(i.pbPrice)} paperback, ${money(i.ebPrice)} eBook, Expanded Distribution ${i.ed ? 'on' : 'off'}, ` +
-      (i.launchPrice ? `${money(i.launchPrice)} launch price for ${i.launchDays} days` : 'no launch price') },
-  sales: { label: 'sales estimates', ids: ['unitsPbAmazon', 'unitsPbEd', 'unitsEb', 'months'],
-    describe: i => `${i.unitsPbAmazon} paperbacks on Amazon, ${i.unitsPbEd} through Expanded Distribution and ${i.unitsEb} eBooks a month, over ${i.months} months` },
-  author: { label: 'author copies', ids: ['authorQty', 'authorShipTotal'],
-    describe: i => `${i.authorQty} copies, ` + (i.authorShipTotal ? `${money(i.authorShipTotal)} order shipping` : 'no shipping estimate') },
-};
-function applyToAll(key) {
-  const g = APPLY_GROUPS[key], src = cases[activeCase].inp;
-  $('confirmText').textContent = `This will apply Case ${activeCase + 1}'s ${g.label} (${g.describe(src)}) to all 3 cases. ` +
-    'Their other inputs stay as they are. You can undo this. Proceed?';
-  const dlg = $('confirmDialog');
-  dlg.returnValue = '';
-  dlg.addEventListener('close', () => {
-    if (dlg.returnValue !== 'ok') return;
-    if (undoHistory.timer) commitHistory();
-    const vals = Object.fromEntries(g.ids.map(id => [id, src[id]]));
-    cases.forEach(c => { c.inp = { ...c.inp, ...vals }; });
-    saveCases(); update(); commitHistory();
-  }, { once: true });
-  dlg.showModal();
-  $('confirmOk').focus();
 }
 
 /* ---------- undo / redo: snapshots of every case and saved scenario ----------
    Typing and dragging are grouped: a snapshot is taken once edits pause for half a second.
    Switching tabs isn't an edit; undo jumps to the case that changed so you can see it. */
 const undoHistory = { stack: [], i: -1, timer: 0 };
-const historyData = () => JSON.stringify({ cases, scenarios });
+const historyData = () => JSON.stringify({ defaults, cases, scenarios });
 function commitHistory() {
   clearTimeout(undoHistory.timer); undoHistory.timer = 0;
   const data = historyData();
@@ -1308,7 +1459,7 @@ function commitHistory() {
 function commitSoon() { clearTimeout(undoHistory.timer); undoHistory.timer = setTimeout(commitHistory, 500); updateHistoryButtons(); }
 function restoreHistory(entry, showCase) {
   const st = JSON.parse(entry.data);
-  cases = st.cases; scenarios = st.scenarios;
+  defaults = { ...CASE_DEFAULTS, ...st.defaults }; cases = st.cases.map(c => makeCase(c.name, c.over)); scenarios = st.scenarios;
   saveCases(); storeSet(STORE_SCEN, scenarios);
   selectCase(showCase);
   updateHistoryButtons();
@@ -1334,7 +1485,6 @@ function initHistory() {
   const mod = IS_MAC ? '⌘' : 'Ctrl+';
   $('undoBtn').title = `Undo (${mod}Z)`;
   $('redoBtn').title = IS_MAC ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y or Ctrl+Shift+Z)';
-  $('resetCase').title = "Put this case back to its starting values. You can undo this.";
   $('undoBtn').addEventListener('click', undo);
   $('redoBtn').addEventListener('click', redo);
   $('resetCase').addEventListener('click', resetCase);
@@ -1355,7 +1505,7 @@ function renderScenarioPicker() {
   sel.value = '';
 }
 function loadIntoCase(sc) {
-  cases[activeCase] = { name: sc.name, inp: { ...CASE_BASE, ...sc.inp } };
+  cases[activeCase] = makeCase(sc.name, diffFromDefaults({ ...CASE_DEFAULTS, ...sc.inp }));
   saveCases();
   selectCase(activeCase);
   commitHistory();
@@ -1392,7 +1542,7 @@ function renderScenarios() {
 }
 
 function saveScenario() {
-  const inp = readInputs();
+  const inp = cases[activeCase].inp;
   const name = cases[activeCase].name.trim() || `${money(inp.pbPrice)} PB / ${money(inp.ebPrice)} eBook, ${inp.pages}p`;
   const existing = scenarios.findIndex(s => s.name === name);
   const entry = { name, inp, saved: new Date().toISOString() };
@@ -1757,6 +1907,7 @@ function linkInputLabels() {
 /* ---------- scrubbing: drag the grip in a number field left or right (like Photoshop) ---------- */
 // With `stops` (prices), each step moves to the next allowed cents ending, e.g. X.25 → X.49 → X.79 → X.95 → (X+1).25,
 // plus any KDP rate thresholds in between. Shift adds or takes away exactly one dollar, so the ending stays the same.
+const PRICE_STOPS = [0.25, 0.49, 0.79, 0.95];
 function stopValue(k, stops) { return Math.floor(k / stops.length) + stops[((k % stops.length) + stops.length) % stops.length]; }
 function stepThroughStops(v, n, stops) {
   // k = the highest stop at or below v.
@@ -1868,32 +2019,44 @@ function initSettings() {
 
 /* ---------- case editor modal ---------- */
 function openCase(i) {
+  formMode = 'case';
   selectCase(i);
+  const dlg = $('caseDialog');
+  if (!dlg.open) dlg.showModal();
+}
+function openDefaults() {
+  if (undoHistory.timer) commitHistory();
+  formMode = 'defaults';
+  refreshForm(); update();
   const dlg = $('caseDialog');
   if (!dlg.open) dlg.showModal();
 }
 function initCaseDialog() {
   const dlg = $('caseDialog');
+  $('openDefaults').addEventListener('click', openDefaults);
+  $('toDefaults').addEventListener('click', openDefaults);
   $('dlgDone').addEventListener('click', () => dlg.close());
   // A click that lands on the dialog element itself is on the backdrop.
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
   dlg.addEventListener('close', hideTip);
   // The link sits in the panel's <summary>, so keep the click from also collapsing the panel.
-  for (const b of document.querySelectorAll('.apply-all')) b.addEventListener('click', e => {
-    e.preventDefault(); e.stopPropagation(); applyToAll(b.dataset.group);
+  for (const b of document.querySelectorAll('.use-defaults')) b.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation(); useDefaults(FIELD_GROUPS[b.dataset.group]);
   });
 }
 
 /* ---------- main loop ---------- */
 function update() {
   scrubRefreshers.forEach(f => f());
-  const inp = readInputs();
-  $('unitsPbEd').disabled = !inp.ed;
-  const r = compute(inp);
+  // The form shows the active case or the defaults; charts fall back to the active case when no case is ticked.
+  const form = readInputs();
+  // In the defaults it stays editable, since any case can turn Expanded Distribution on.
+  $('unitsPbEd').disabled = formMode === 'case' && !form.ed;
+  renderSpine(compute(form));
   renderSummary();
-  renderSpine(r);
   renderGuidance();
-  updateCharts(inp, r);
+  const inp = cases[activeCase].inp;
+  updateCharts(inp, compute(inp));
   updateScenChart();
   renderScenarios();
 }
@@ -1923,15 +2086,13 @@ window.runSpotChecks = runSpotChecks;
 
 /* ---------- init ---------- */
 (function init() {
-  writeInputs(cases[activeCase].inp);
-  $('caseName').value = cases[activeCase].name;
+  refreshForm();
   $('tagRoundEven').title = KDP_RULES.pageRoundEven.label + '. ' + KDP_RULES.pageRoundEven.note;
-  for (const id of INPUT_IDS) { $(id).addEventListener('input', onInputsChanged); $(id).addEventListener('change', onInputsChanged); }
+  for (const id of INPUT_IDS) { $(id).addEventListener('input', onFieldInput); $(id).addEventListener('change', onFieldInput); }
   $('caseName').addEventListener('input', onCaseNameChanged);
   $('saveScen').addEventListener('click', saveScenario);
   $('loadScen').addEventListener('change', e => { const sc = scenarios[Number(e.target.value)]; if (sc) loadIntoCase(sc); });
   makeScrubbable($('pages'), { step: 2, fastStep: 10, min: R('printMinPages'), max: R('printMaxPages') });
-  const PRICE_STOPS = [0.25, 0.49, 0.79, 0.95];
   const priceHint = 'Drag left or right to step through prices ending in .25, .49, .79 and .95, plus the prices where KDP\'s royalty rate changes (shown in green). Hold Shift to jump a whole dollar and keep the ending. You can also type any price.';
   // KDP's minimum list prices are hard floors: they depend on page count, trim, Expanded Distribution and file size.
   const pbFloor = () => compute(readInputs()).pb.min;
@@ -1955,7 +2116,6 @@ window.runSpotChecks = runSpotChecks;
   buildCharts();
   applyChartVisibility();
   document.addEventListener('click', e => { const m = document.querySelector('.compare-bar .menu'); if (m && m.open && !m.contains(e.target)) m.open = false; });
-  renderCaseTabs();
   update();
   initHistory();
   runSpotChecks();
