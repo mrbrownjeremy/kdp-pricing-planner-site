@@ -535,8 +535,8 @@
       <h2>Cases and saved scenarios</h2>
       <div class="toolbar">
         <button id="exportCsv" title="The three cases and every saved scenario">Export CSV</button>
-        <button id="exportComparison" title="Just the three cases as they are now">Export current comparison</button>
-        <button id="exportPresets" title="The three cases each Compare: preset would set up, built from the current defaults">Export all Compare presets</button>
+        <button id="exportComparison" title="The three cases as they are now, with the summary and charts">Comparison PDF</button>
+        <button id="exportPresets" title="The three cases each Compare: preset would set up, built from the current defaults">All Compare presets PDF</button>
         <span class="note" style="margin:0">Save a case as a scenario from the case editor (click a case heading in the summary). Load puts a scenario into the case you last edited.</span>
       </div>
       <div class="table-scroll"><table class="scen" id="scenTable"></table></div>
@@ -1485,7 +1485,7 @@ function resetCase() {
    A template builds each case's own values around the defaults; everything else follows the defaults.
    Prices are kept at or above KDP's minimum for that case.
    TODO: let people save the current three cases as their own "Compare:" preset (a chip next to these,
-   stored like scenarios, included in "Export all Compare presets", with a way to rename and delete it). */
+   stored like scenarios, included in the "all presets" PDF, with a way to rename and delete it). */
 const COMPARE_TEMPLATES = [
   { label: 'Price: low – high', build: d => [-1, 0, 1].map(k => ({ pbPrice: d.pbPrice + 2 * k, ebPrice: d.ebPrice + k })),
     name: o => `${money(o.pbPrice)} / ${money(o.ebPrice)}`, what: 'paperback ±$2 and eBook ±$1 around the default prices' },
@@ -1527,8 +1527,8 @@ function renderCompareTemplates() {
     list.append(el('button', { class: 'tpl', type: 'button', 'aria-pressed': String(on), text: t.label, onclick: () => applyTemplate(t),
       title: `${preview}\nSets up the three cases to differ only in this (${t.what}); everything else follows the defaults. Undo with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.` }));
   }
-  list.append(el('span', { class: 'tpl-export' }, 'Export CSV: ',
-    el('button', { class: 'link-btn', type: 'button', text: 'this comparison', title: 'Just the three cases as they are now', onclick: exportComparison }), ' · ',
+  list.append(el('span', { class: 'tpl-export' }, 'Export PDF: ',
+    el('button', { class: 'link-btn', type: 'button', text: 'this comparison', title: 'The three cases as they are now, with the summary and charts', onclick: exportComparison }), ' · ',
     el('button', { class: 'link-btn', type: 'button', text: 'all presets', title: 'The three cases each preset would set up, built from the current defaults', onclick: exportPresets })));
 }
 
@@ -1659,18 +1659,129 @@ function downloadCsv(filename, rows, lead = []) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 const exportCsv = () => downloadCsv('kdp-scenarios.csv', [...caseRows(), ...scenRows()]);
-// The three cases now, labelled with the Compare: preset they match, if any.
+/* ---------- PDF export: the comparison (summary and charts), or every Compare: preset's three cases ----------
+   jsPDF loads from cdnjs on first use. Its built-in Helvetica only has Latin-1, so other characters are swapped out. */
+const PDF_LIBS = ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'];
+let pdfReady = null;
+function loadPdfLibs() {
+  pdfReady ??= PDF_LIBS.reduce((p, src) => p.then(() => new Promise((ok, fail) =>
+    document.head.append(el('script', { src, onload: ok, onerror: () => fail(new Error(src)) })))), Promise.resolve())
+    .catch(e => { pdfReady = null; throw e; });
+  return pdfReady;
+}
+const pdfText = v => String(v).replace(/[‒-―−]/g, '-').replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+  .replace(/…/g, '...').replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/≈/g, '~').replace(/[^\x00-\xFF]/g, '');
+const hexRgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h); const n = m ? parseInt(m[1], 16) : 0x888888; return [n >> 16, (n >> 8) & 255, n & 255]; };
+const labelText = l => l instanceof Node ? l.textContent : String(l);
+// Inputs worth showing in the PDF, before the summary's own figures.
+const PDF_INPUTS = [
+  ['Pages', c => String(c.inp.pages)],
+  ['Trim, paper', c => `${c.inp.trim}, ${c.inp.paper}`],
+  ['Paperback price', c => money(c.inp.pbPrice)],
+  ['eBook price', c => money(c.inp.ebPrice)],
+  ['eBook file size', c => `${c.inp.fileMB} MB`],
+  ['Expanded Distribution', c => c.inp.ed ? 'on' : 'off'],
+  ['eBook launch price', c => c.inp.launchPrice > 0 && c.inp.launchDays > 0 ? `${money(c.inp.launchPrice)} for ${c.inp.launchDays} days` : 'none'],
+];
+// One table: a column per case, the inputs, then each summary section with its figures and the line under each.
+function pdfCaseTable(doc, list, startY) {
+  const anyEd = list.some(c => c.inp.ed), anyLaunch = list.some(c => c.inp.launchPrice > 0 && c.inp.launchDays > 0);
+  const sec = title => [{ content: title, colSpan: list.length + 1, styles: { fontStyle: 'bold', fillColor: [238, 236, 230] } }];
+  const body = [sec('Inputs'), ...PDF_INPUTS.map(([l, f]) => [l, ...list.map(f)])];
+  for (const s of summarySections(anyEd, anyLaunch)) {
+    body.push(sec(s.title));
+    for (const row of s.rows) body.push([(row.minor ? '   ' : '') + labelText(row.label),
+      ...list.map(c => row.fmt(row.get(c)) + (row.sub ? '\n' + row.sub(c) : ''))]);
+  }
+  doc.autoTable({
+    startY, head: [['', ...list.map(c => c.name)]], body: body.map(r => r.map(v => typeof v === 'string' ? pdfText(v) : { ...v, content: pdfText(v.content) })),
+    theme: 'grid', margin: { left: 40, right: 40 },
+    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 4, lineColor: [215, 212, 205], lineWidth: 0.5, textColor: [30, 30, 28] },
+    headStyles: { fillColor: [246, 245, 242], textColor: [30, 30, 28], fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 140, fontStyle: 'bold' } },
+    // The lines under a figure are drawn smaller and gray, in the space the table left for them.
+    willDrawCell: d => {
+      if (d.section !== 'body' || d.column.index === 0 || d.cell.text.length < 2) return;
+      d.cell.subLines = d.cell.text.slice(1); d.cell.text = d.cell.text.slice(0, 1);
+    },
+    didDrawCell: d => {
+      // Each case's heading is underlined in its color, as on the page.
+      if (d.section === 'head' && d.column.index > 0) {
+        doc.setDrawColor(...hexRgb(css(CASE_COLORS[d.column.index - 1]))); doc.setLineWidth(3);
+        doc.line(d.cell.x, d.cell.y + d.cell.height - 1.5, d.cell.x + d.cell.width, d.cell.y + d.cell.height - 1.5);
+      }
+      if (!d.cell.subLines) return;
+      doc.setFontSize(7.5); doc.setTextColor(110, 108, 102); doc.setFont('helvetica', 'normal');
+      doc.text(d.cell.subLines, d.cell.x + d.cell.padding('left'), d.cell.y + d.cell.padding('top') + 8.5 * 1.15 + 1, { baseline: 'top', lineHeightFactor: 1.2 });
+    },
+  });
+  return doc.lastAutoTable.finalY;
+}
+function pdfHeader(doc, title, lines) {
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 30, 28);
+  doc.text(pdfText(title), 40, 50);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 98, 92);
+  lines.forEach((l, i) => doc.text(pdfText(l), 40, 66 + i * 12));
+  return 66 + lines.length * 12;
+}
+function pdfFooter(doc) {
+  const n = doc.getNumberOfPages(), w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120, 118, 112);
+    doc.text(pdfText("Planning tool only. KDP rates change; confirm in KDP's own royalty calculator before publishing."), 40, h - 24);
+    doc.text(`${i} / ${n}`, w - 40, h - 24, { align: 'right' });
+  }
+}
+const pdfDate = () => new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+// Each shown chart as an image on the page's own background, so its text stays readable in dark mode.
+function chartImages() {
+  if (!hasChart) return [];
+  return Object.entries(CHART_KEYS).filter(([id, k]) => chartsShown[id] && charts[k]?.canvas.width && charts[k].canvas.height).map(([id, k]) => {
+    const src = charts[k].canvas, c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = css('--bg'); ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(src, 0, 0);
+    return { title: document.querySelector(`.chart-box[data-chart="${id}"] h3`).textContent, url: c.toDataURL('image/png'), ratio: c.height / c.width };
+  });
+}
+async function makePdf(build, filename) {
+  try { await loadPdfLibs(); }
+  catch { alert("PDF export needs jsPDF from cdnjs.cloudflare.com, which didn't load. Check your connection and try again."); return; }
+  const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
+  build(doc);
+  pdfFooter(doc);
+  doc.save(filename);
+}
+// The three cases now, with the summary and charts, labelled with the Compare: preset they match, if any.
 function exportComparison() {
   const t = COMPARE_TEMPLATES.find(templateActive);
-  downloadCsv('kdp-comparison.csv', caseRows(), [['Compare preset', () => t ? t.label : '']]);
+  makePdf(doc => {
+    const y = pdfHeader(doc, 'KDP Pricing Planner: comparison', [pdfDate() + (t ? ` · Compare preset: ${t.label} (${t.what})` : ''),
+      'Sales are placeholders per 100 copies unless you entered your own estimates.']);
+    let top = pdfCaseTable(doc, caseRows(), y + 8) + 24;
+    const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight(), gap = 16, colW = (w - 80 - gap) / 2;
+    chartImages().forEach((img, i) => {
+      const imgH = colW * img.ratio, x = 40 + (i % 2) * (colW + gap);
+      if (i % 2 === 0 && top + imgH + 20 > h - 40) { doc.addPage(); top = 40; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(30, 30, 28);
+      doc.text(pdfText(img.title), x, top + 10, { maxWidth: colW });
+      doc.addImage(img.url, 'PNG', x, top + 16, colW, imgH);
+      if (i % 2 === 1) top += imgH + 34;
+    });
+  }, 'kdp-comparison.pdf');
 }
-// Every Compare: preset's three cases, built from the current defaults (the cases themselves don't change).
+// Every Compare: preset's three cases, built from the current defaults (the cases themselves don't change). One preset per page.
 function exportPresets() {
-  const rows = COMPARE_TEMPLATES.flatMap(t => templateCases(t).map((o, i) => {
-    const inp = { ...defaults, ...o };
-    return { preset: t.label, name: `Case ${i + 1}: ${t.name(o)}`, inp, r: compute(inp) };
-  }));
-  downloadCsv('kdp-compare-presets.csv', rows, [['Compare preset', s => s.preset]]);
+  makePdf(doc => {
+    COMPARE_TEMPLATES.forEach((t, n) => {
+      if (n) doc.addPage();
+      const list = templateCases(t).map((o, i) => { const inp = { ...defaults, ...o }; return { name: `Case ${i + 1}: ${t.name(o)}`, inp, r: compute(inp) }; });
+      const y = pdfHeader(doc, `Compare: ${t.label}`, [`KDP Pricing Planner · ${pdfDate()} · preset ${n + 1} of ${COMPARE_TEMPLATES.length}`,
+        `The three cases differ only in this (${t.what}); everything else follows the current defaults.`]);
+      pdfCaseTable(doc, list, y + 8);
+    });
+  }, 'kdp-compare-presets.pdf');
 }
 
 /* ---------- charts ---------- */
