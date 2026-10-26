@@ -220,15 +220,24 @@
   .sum-title { display: flex; align-items: baseline; gap: 12px; }
   .sum-title button { margin-left: auto; }
   .sum-body { margin-top: 8px; }
+  /* Right-click menu */
+  .ctx-menu { position: fixed; z-index: 60; min-width: 220px; max-width: min(360px, calc(100vw - 8px)); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  .ctx-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; border-radius: 5px; font-size: 13px; }
+  .ctx-menu button:hover, .ctx-menu button:focus-visible { background: var(--surface-2); outline: none; }
+  .ctx-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+  /* Inputs reached from a right-click menu flash briefly. */
+  @keyframes field-flash { 0%, 40% { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }
+  label.flash { animation: field-flash 1.8s ease-out; border-radius: 4px; }
   /* Compare: templates that set up the three cases to differ in one input. */
-  .tpl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
-  .tpl-bar .lbl { font-weight: 650; margin-right: 2px; }
+  .tpl-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 0 0 10px; }
+  .tpl-bar .lbl { font-weight: 650; }
+  .tpl-list { display: flex; flex-wrap: wrap; gap: 6px; }
   button.tpl { border-radius: 99px; padding: 3px 11px; font-size: 12px; }
   button.tpl:hover { border-color: var(--accent); }
   button.tpl[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
   /* Quick-edit fields under each case heading: page count and both prices on one line. */
   table.sum tr.quick-row > * { padding-top: 4px; }
-  .quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .quick { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr) minmax(0, 1.05fr) minmax(0, 0.8fr); gap: 5px; }
   .quick label { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; font-size: 11px; color: var(--muted); }
   .quick label span { overflow: hidden; text-overflow: ellipsis; }
   .quick input { padding: 4px 5px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; appearance: textfield; -moz-appearance: textfield; }
@@ -1037,7 +1046,7 @@ function summarySections(anyEd, anyLaunch) {
   return [
     cost,
     { key: 'earn', title: 'Earnings', rows: [
-      { label: withIcon('paperback', 'Paperback royalty / copy'), get: c => c.r.pb.royaltyAmazon, fmt: money, better: 'up', fields: ['pbPrice', 'pages', 'ed'],
+      { label: withIcon('paperback', 'Paperback royalty / copy'), get: c => c.r.pb.royaltyAmazon, fmt: money, better: 'up', fields: ['pbPrice', 'pages'],
         sub: c => `Amazon ${pct(c.r.pb.rate)}` + (c.inp.ed ? ` · ED ${money(c.r.pb.royaltyEd)}` : '') },
       { label: withIcon('ebook', 'eBook royalty / copy'), get: c => c.r.eb.royalty, fmt: money, better: 'up', fields: ['ebPrice', 'fileMB'],
         sub: c => c.r.eb.rate >= R('eb70Rate') ? '70%' : `35%: ${c.r.eb.reason}` },
@@ -1066,7 +1075,7 @@ const QUICK_FIELDS = [
   { id: 'pages', label: 'Pages', aria: 'page count' },
   { id: 'pbPrice', label: 'Paperback', aria: 'paperback price', price: true },
   { id: 'ebPrice', label: 'eBook', aria: 'eBook price', price: true },
-  { id: 'fileMB', label: 'File MB', aria: 'eBook file size in MB' },
+  { id: 'fileMB', label: 'MB', aria: 'eBook file size in MB' },
 ];
 const priceFloor = (id, inp) => { const r = compute(inp); return id === 'pbPrice' ? r.pb.min : r.eb.minPrice; };
 function quickStep(i, f, dir, fast) {
@@ -1111,6 +1120,7 @@ function buildSummaryHead(colgroup) {
     const cell = el('td', null,
       el('div', { class: 'quick' }, ...fields.map(q => el('label', { title: `Case ${i + 1}'s own value` }, el('span', { text: q.f.label }), q.input))),
       el('button', { class: 'link-btn more-link', type: 'button', text: 'More edit options', onclick: () => openCase(i) }));
+    cell.addEventListener('contextmenu', e => showMenu(e, caseMenuItems(i, QUICK_FIELDS.map(f => f.id))));
     quickRow.append(cell);
     return { cell, fields };
   });
@@ -1134,7 +1144,8 @@ function renderSummary() {
   const head = sumHead.headRow;
   head.replaceChildren(el('th', { class: 'sec' }), el('th', { class: 'rl' }));
   cols.forEach(c => head.append(el('th', {
-    class: 'case' + (c.i === activeCase ? ' active' : ''), style: `--case:${c.color}`, title: `Edit Case ${c.i + 1}'s inputs`, onclick: () => openCase(c.i) },
+    class: 'case' + (c.i === activeCase ? ' active' : ''), style: `--case:${c.color}`, title: `Edit Case ${c.i + 1}'s inputs`, onclick: () => openCase(c.i),
+    oncontextmenu: e => showMenu(e, caseMenuItems(c.i)) },
     c.i === baseIdx ? el('span', { class: 'base-tag', title: 'Other cases show their difference from this one', text: 'baseline' }) : null,
     `Case ${c.i + 1} `, el('span', { class: 'edit', text: '✎' }), el('span', { class: 'nm', text: c.name }))));
   sumHead.quick.forEach((q, i) => {
@@ -1152,13 +1163,13 @@ function renderSummary() {
     const rows = sec.rows.map((row, ri) => {
       const tr = el('tr', row.minor ? { class: 'minor' } : row.net ? { class: 'net' } : null);
       if (ri === 0) tr.append(el('th', { class: 'sec', rowspan: String(sec.rows.length) }, el('span', { text: sec.title })));
-      const label = el('th', { class: 'rl' }, row.label);
+      const label = el('th', { class: 'rl', oncontextmenu: e => showMenu(e, generalMenuItems(row.fields || [])) }, row.label);
       if (row.info) label.append(' ', el('span', { class: 'info', title: row.info, text: 'ⓘ' }));
       tr.append(label);
       const base = row.get(cols[baseIdx]);
       cols.forEach(c => {
         const v = row.get(c);
-        const cell = caseCell(c);
+        const cell = caseCell(c, { oncontextmenu: e => showMenu(e, caseMenuItems(c.i, row.fields || [])) });
         const line = el('div');
         const d = v - base;
         if (c.i !== baseIdx && Math.abs(d) >= 0.005) {
@@ -1182,7 +1193,7 @@ function renderSummary() {
     const list = warnings(c.inp, c.r);
     if (!list.length) chips.append(el('div', { class: 'chip ok', text: 'No problems.' }));
     for (const [lvl, text] of list) chips.append(el('div', { class: 'chip ' + lvl, text }));
-    const cell = caseCell(c);
+    const cell = caseCell(c, { oncontextmenu: e => showMenu(e, caseMenuItems(c.i)) });
     cell.append(chips);
     warnRow.append(cell);
   });
@@ -1200,7 +1211,7 @@ function caseColumns() {
   return cases.map((c, i) => ({ i, inp: c.inp, r: compute(c.inp) }));
 }
 function caseColumn(i) {
-  return el('div', { class: 'case-col', style: `--case:var(${CASE_COLORS[i]})` },
+  return el('div', { class: 'case-col', style: `--case:var(${CASE_COLORS[i]})`, oncontextmenu: e => showMenu(e, caseMenuItems(i)) },
     el('div', { class: 'case-col-head' }, el('span', { class: 'swatch' }), `Case ${i + 1}`, el('span', { class: 'nm', text: caseTitle(i) })));
 }
 
@@ -1445,9 +1456,9 @@ function setCaseValue(i, id, v) {
   if (formMode === 'case' && i === activeCase) refreshForm();
   saveCases(); update(); commitSoon();
 }
-function useDefaults(ids) {
+function useDefaults(ids, i = activeCase) {
   if (undoHistory.timer) commitHistory();
-  for (const id of ids) delete cases[activeCase].over[id];
+  for (const id of ids) delete cases[i].over[id];
   saveCases(); refreshForm(); update(); commitHistory();
 }
 function onCaseNameChanged() {
@@ -1473,13 +1484,13 @@ function resetCase() {
 const COMPARE_TEMPLATES = [
   { label: 'Price: low – high', build: d => [-1, 0, 1].map(k => ({ pbPrice: d.pbPrice + 2 * k, ebPrice: d.ebPrice + k })),
     name: o => `${money(o.pbPrice)} / ${money(o.ebPrice)}`, what: 'paperback ±$2 and eBook ±$1 around the default prices' },
-  { label: 'Paperback around $9.99', build: () => [8.99, 9.99, 10.99].map(pbPrice => ({ pbPrice })),
+  { label: 'Paperback near $9.99', build: () => [8.99, 9.99, 10.99].map(pbPrice => ({ pbPrice })),
     name: o => `${money(o.pbPrice)} paperback`, what: "either side of KDP's 60% step" },
   { label: 'eBook price ±$2', build: d => [-2, 0, 2].map(k => ({ ebPrice: d.ebPrice + k })),
     name: o => `${money(o.ebPrice)} eBook`, what: 'around the default eBook price' },
   { label: 'Page count ±10', build: d => [-10, 0, 10].map(k => ({ pages: d.pages + k })),
     name: o => `${o.pages} pages`, what: 'around the default page count' },
-  { label: 'eBook size 0.1 · 0.5 · 1 MB', build: () => [0.1, 0.5, 1].map(fileMB => ({ fileMB })),
+  { label: 'eBook MB: 0.1 · 0.5 · 1', build: () => [0.1, 0.5, 1].map(fileMB => ({ fileMB })),
     name: o => `${o.fileMB} MB eBook`, what: 'which changes the delivery fee on 70% sales' },
   { label: 'Expanded Distribution', build: d => [{ ed: false }, { ed: true }, { ed: true, pbPrice: d.pbPrice + 2 }],
     name: o => !o.ed ? 'Amazon only' : 'pbPrice' in o ? `Expanded, ${money(o.pbPrice)}` : 'Expanded Distribution', what: 'off, on, and on with the paperback $2 higher' },
@@ -1503,11 +1514,12 @@ function applyTemplate(t) {
 }
 function renderCompareTemplates() {
   const bar = $('compareTpl');
-  bar.replaceChildren(el('span', { class: 'lbl', text: 'Compare:' }));
+  const list = el('div', { class: 'tpl-list' });
+  bar.replaceChildren(el('span', { class: 'lbl', text: 'Compare:' }), list);
   for (const t of COMPARE_TEMPLATES) {
     const on = templateActive(t);
     const preview = templateCases(t).map((o, i) => `Case ${i + 1}: ${t.name(o)}`).join(' · ');
-    bar.append(el('button', { class: 'tpl', type: 'button', 'aria-pressed': String(on), text: t.label, onclick: () => applyTemplate(t),
+    list.append(el('button', { class: 'tpl', type: 'button', 'aria-pressed': String(on), text: t.label, onclick: () => applyTemplate(t),
       title: `${preview}\nSets up the three cases to differ only in this (${t.what}); everything else follows the defaults. Undo with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.` }));
   }
 }
@@ -1575,10 +1587,10 @@ function renderScenarioPicker() {
   scenarios.forEach((sc, i) => sel.append(el('option', { value: String(i), text: sc.name })));
   sel.value = '';
 }
-function loadIntoCase(sc) {
-  cases[activeCase] = makeCase(sc.name, diffFromDefaults({ ...CASE_DEFAULTS, ...sc.inp }));
+function loadIntoCase(sc, i = activeCase) {
+  cases[i] = makeCase(sc.name, diffFromDefaults({ ...CASE_DEFAULTS, ...sc.inp }));
   saveCases();
-  selectCase(activeCase);
+  selectCase(i);
   commitHistory();
 }
 
@@ -2089,23 +2101,122 @@ function initSettings() {
 }
 
 /* ---------- case editor modal ---------- */
-function openCase(i) {
+// `focus` (input ids) opens their panels, focuses the first and briefly highlights them all.
+function openCase(i, focus) {
   formMode = 'case';
   selectCase(i);
   const dlg = $('caseDialog');
   if (!dlg.open) dlg.showModal();
+  if (focus) focusFields(focus);
 }
-function openDefaults() {
+function openDefaults(focus) {
   if (undoHistory.timer) commitHistory();
   formMode = 'defaults';
   refreshForm(); update();
   const dlg = $('caseDialog');
   if (!dlg.open) dlg.showModal();
+  if (focus) focusFields(focus);
 }
+function focusFields(ids) {
+  ids.forEach((id, k) => {
+    const label = $(id).closest('label'), panel = label.closest('details');
+    if (panel) panel.open = true;
+    label.classList.remove('flash'); void label.offsetWidth; label.classList.add('flash');
+    label.addEventListener('animationend', () => label.classList.remove('flash'), { once: true });
+    if (!k) { $(id).focus({ preventScroll: true }); label.scrollIntoView({ block: 'center' }); }
+  });
+}
+
+/* ---------- right-click menus: edit the case, or the defaults, behind whatever was clicked ----------
+   Links and form fields keep the browser's own menu. */
+const FIELD_NAMES = { pages: 'page count', trim: 'trim size', paper: 'paper', fileMB: 'eBook file size', deliveryPerMB: 'delivery fee',
+  pbPrice: 'paperback price', ebPrice: 'eBook price', ed: 'Expanded Distribution', launchPrice: 'launch price', launchDays: 'launch length',
+  unitsPbAmazon: 'paperback sales', unitsPbEd: 'Expanded Distribution sales', unitsEb: 'eBook sales', months: 'months',
+  authorQty: 'author copies', authorShipTotal: 'author copy shipping' };
+function fieldList(ids) {
+  const n = ids.map(id => FIELD_NAMES[id]);
+  return n.length <= 2 ? n.join(' and ') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`;
+}
+function setBaseline(i) { settings.baseline = i; storeSet(STORE_SETTINGS, settings); applySettings(); update(); }
+function caseMenuItems(i, fields = []) {
+  const n = i + 1, own = fields.filter(id => id in cases[i].over);
+  return [
+    fields.length && { label: `Edit ${fieldList(fields)} in Case ${n}…`, run: () => openCase(i, fields) },
+    { label: `Edit Case ${n}: ${caseTitle(i)}…`, run: () => openCase(i) },
+    own.length && { label: `Use the default ${fieldList(own)} in Case ${n}`, run: () => useDefaults(own, i) },
+    'sep',
+    fields.length && { label: `Edit default ${fieldList(fields)}…`, run: () => openDefaults(fields) },
+    { label: 'Edit defaults for all cases…', run: () => openDefaults() },
+    settings.baseline !== i && 'sep',
+    settings.baseline !== i && { label: `Compare against Case ${n}`, run: () => setBaseline(i) },
+  ];
+}
+// For a row label or a spot not tied to one case.
+function generalMenuItems(fields = [], caseIdx = [0, 1, 2]) {
+  return [
+    ...caseIdx.map(i => ({ label: fields.length ? `Edit ${fieldList(fields)} in Case ${i + 1}…` : `Edit Case ${i + 1}: ${caseTitle(i)}…`, run: () => openCase(i, fields.length ? fields : undefined) })),
+    'sep',
+    fields.length && { label: `Edit default ${fieldList(fields)}…`, run: () => openDefaults(fields) },
+    { label: 'Edit defaults for all cases…', run: () => openDefaults() },
+  ];
+}
+let ctxMenu = null;
+function closeMenu() { if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; } }
+function showMenu(e, items) {
+  if (e.target.closest && e.target.closest('a, input, select, textarea')) return;
+  e.preventDefault(); closeMenu(); hideTip();
+  // Drop empty entries and any separator at either end or next to another.
+  const list = items.filter(Boolean).filter((it, k, a) => it !== 'sep' || (k > 0 && k < a.length - 1 && a[k + 1] !== 'sep'));
+  const m = el('div', { class: 'ctx-menu', role: 'menu' });
+  for (const it of list) m.append(it === 'sep' ? el('div', { class: 'ctx-sep', role: 'separator' })
+    : el('button', { type: 'button', role: 'menuitem', text: it.label, onclick: () => { closeMenu(); it.run(); } }));
+  m.addEventListener('keydown', ev => {
+    const btns = [...m.querySelectorAll('button')], k = btns.indexOf(document.activeElement);
+    if (ev.key === 'Escape') { ev.preventDefault(); closeMenu(); }
+    else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      btns[(k + (ev.key === 'ArrowDown' ? 1 : -1) + btns.length) % btns.length].focus();
+    }
+  });
+  document.body.append(m); ctxMenu = m;
+  const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(4, Math.min(e.clientX, innerWidth - w - 4)) + 'px';
+  m.style.top = Math.max(4, e.clientY + h > innerHeight - 4 ? e.clientY - h : e.clientY) + 'px';
+  m.querySelector('button').focus({ preventScroll: true });
+}
+// Charts: the case under the pointer (nearest line or bar), or the one case shown.
+const CHART_FIELDS = { chartPb: ['pbPrice', 'ed'], chartEb: ['ebPrice', 'fileMB'], chartPages: ['pages', 'trim'], chartScen: ['unitsPbAmazon', 'unitsEb'] };
+const CHART_KEYS = { chartPb: 'pb', chartEb: 'eb', chartPages: 'pages', chartScen: 'scen' };
+function initMenus() {
+  document.addEventListener('pointerdown', e => { if (ctxMenu && !ctxMenu.contains(e.target)) closeMenu(); }, true);
+  window.addEventListener('scroll', e => { if (ctxMenu && !ctxMenu.contains(e.target)) closeMenu(); }, true);
+  window.addEventListener('resize', closeMenu);
+  window.addEventListener('blur', closeMenu);
+  for (const [id, fields] of Object.entries(CHART_FIELDS)) $(id).addEventListener('contextmenu', e => {
+    const chart = charts[CHART_KEYS[id]];
+    if (!chart) return;
+    const cfgs = chartConfigs();
+    if (id === 'chartScen') {
+      const hit = chart.getElementsAtEventForMode(e, 'index', { intersect: false }, false)[0];
+      if (!hit) return showMenu(e, generalMenuItems(fields));
+      if (hit.index < cases.length) return showMenu(e, caseMenuItems(hit.index, fields));
+      const sc = scenarios[hit.index - cases.length];
+      return showMenu(e, [...cases.map((c, i) => ({ label: `Load “${sc.name}” into Case ${i + 1}`, run: () => loadIntoCase(sc, i) })), 'sep',
+        { label: 'Edit defaults for all cases…', run: () => openDefaults() }]);
+    }
+    let i = cfgs.length === 1 ? cfgs[0].n - 1 : cfgs.length ? null : activeCase;
+    if (i === null) {
+      const hit = chart.getElementsAtEventForMode(e, 'nearest', { intersect: false, axis: 'xy' }, false)[0];
+      if (hit) i = chart.data.datasets[hit.datasetIndex].group - 1;
+    }
+    showMenu(e, i === null ? generalMenuItems(fields, cfgs.map(c => c.n - 1)) : caseMenuItems(i, fields));
+  });
+}
+
 function initCaseDialog() {
   const dlg = $('caseDialog');
-  $('openDefaults').addEventListener('click', openDefaults);
-  $('toDefaults').addEventListener('click', openDefaults);
+  $('openDefaults').addEventListener('click', () => openDefaults());
+  $('toDefaults').addEventListener('click', () => openDefaults());
   $('dlgDone').addEventListener('click', () => dlg.close());
   // A click that lands on the dialog element itself is on the backdrop.
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
@@ -2187,6 +2298,7 @@ window.runSpotChecks = runSpotChecks;
   linkInputLabels();
   buildCharts();
   applyChartVisibility();
+  initMenus();
   document.addEventListener('click', e => { const m = document.querySelector('.compare-bar .menu'); if (m && m.open && !m.contains(e.target)) m.open = false; });
   update();
   initHistory();
