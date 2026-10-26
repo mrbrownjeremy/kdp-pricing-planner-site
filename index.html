@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KDP Pricing Planner</title>
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="KDP Planner">
 <style>
   :root {
     --bg: #f6f5f2;
@@ -219,7 +222,7 @@
   .sum-body { margin-top: 8px; }
   /* Quick-edit fields under each case heading: page count and both prices on one line. */
   table.sum tr.quick-row > * { padding-top: 4px; }
-  .quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
   .quick label { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; font-size: 11px; color: var(--muted); }
   .quick label span { overflow: hidden; text-overflow: ellipsis; }
   .quick input { padding: 4px 5px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; appearance: textfield; -moz-appearance: textfield; }
@@ -229,7 +232,7 @@
   .inline-select { width: auto; display: inline-block; padding: 1px 4px; font-size: 12px; }
   table.sum th.case .base-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 0 5px; margin-right: 6px; vertical-align: 1px; }
   .sum-wrap { overflow-x: auto; }
-  .sum-wrap > * { min-width: 760px; }
+  .sum-wrap > * { min-width: 860px; }
   .sum-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .sum-block + .sum-block { margin-top: 8px; }
   table.sum { border-collapse: collapse; width: 100%; table-layout: fixed; font-variant-numeric: tabular-nums; }
@@ -448,7 +451,7 @@
     <details class="panel" open>
       <summary>Sales estimates<button class="link-btn panel-link use-defaults case-only" type="button" data-group="sales" title="Use the defaults for all cases for every input in this panel">Use defaults</button></summary>
       <div class="panel-body">
-        <p class="note">These are guesses. Use them to compare scenarios, not to predict income.</p>
+        <p class="note">Placeholders: 100 paperbacks on Amazon, 10 through Expanded Distribution and 100 eBooks, so cases compare per 100 sales. Put in your own guesses to project income.</p>
         <p class="note" style="margin-bottom:0"><i data-fmt="paperback"></i>Paperback units per month</p>
         <div class="row2">
           <label class="field"><span>On Amazon</span>
@@ -1014,70 +1017,71 @@ if (!Array.isArray(scenarios)) scenarios = [];
 
 /* ---------- rendering ---------- */
 /* Summary rows. `get` returns a number for the cell; `sub` an optional line under it.
-   `better` says which way is good ('up' or 'down'), which colours the difference from Case 1. */
+   `better` says which way is good ('up' or 'down'), which colours the difference from Case 1.
+   `fields` are the inputs the row depends on, offered by its right-click menu. */
 function summarySections(anyEd, anyLaunch) {
-  const projRow = (label, key, extra = {}) => ({ label, minor: true, get: c => c.r.proj[key], fmt: moneyK, better: 'up', ...extra });
+  const projRow = (label, key, fields, extra = {}) => ({ label, minor: true, get: c => c.r.proj[key], fmt: moneyK, better: 'up', fields, ...extra });
   const cost = { key: 'cost', title: 'Costs', rows: [
-      { label: withIcon('paperback', 'Print cost / copy'), get: c => c.r.pb.cost, fmt: money, better: 'down',
+      { label: withIcon('paperback', 'Print cost / copy'), get: c => c.r.pb.cost, fmt: money, better: 'down', fields: ['pages', 'trim'],
         sub: c => `${c.r.billed} pages, ${c.inp.trim}`, info: KDP_RULES.printFlatMaxPages.note },
-      { label: 'Author copies', get: c => c.r.author.total, fmt: money, better: 'down',
+      { label: 'Author copies', get: c => c.r.author.total, fmt: money, better: 'down', fields: ['authorQty', 'authorShipTotal'],
         sub: c => `${c.inp.authorQty} copies, ${money(c.r.author.perCopy)} each` + (c.r.author.shipKnown ? '' : ', shipping not entered') },
     ] };
   return [
     cost,
     { key: 'earn', title: 'Earnings', rows: [
-      { label: withIcon('paperback', 'Paperback royalty / copy'), get: c => c.r.pb.royaltyAmazon, fmt: money, better: 'up',
+      { label: withIcon('paperback', 'Paperback royalty / copy'), get: c => c.r.pb.royaltyAmazon, fmt: money, better: 'up', fields: ['pbPrice', 'pages', 'ed'],
         sub: c => `Amazon ${pct(c.r.pb.rate)}` + (c.inp.ed ? ` · ED ${money(c.r.pb.royaltyEd)}` : '') },
-      { label: withIcon('ebook', 'eBook royalty / copy'), get: c => c.r.eb.royalty, fmt: money, better: 'up',
+      { label: withIcon('ebook', 'eBook royalty / copy'), get: c => c.r.eb.royalty, fmt: money, better: 'up', fields: ['ebPrice', 'fileMB'],
         sub: c => c.r.eb.rate >= R('eb70Rate') ? '70%' : `35%: ${c.r.eb.reason}` },
-      { label: 'Projected royalties', get: c => c.r.proj.total, fmt: moneyK, better: 'up',
-        sub: c => `${c.r.months} months; print cost already deducted` },
-      projRow(withIcon('paperback', 'Paperback · Amazon'), 'pbAmazon', { sub: c => `${Math.round(c.r.proj.pbAmazonUnits)} copies` }),
-      ...(anyEd ? [projRow(withIcon('paperback', 'Paperback · Expanded'), 'pbEd', { sub: c => c.inp.ed ? `${Math.round(c.r.proj.pbEdUnits)} copies` : 'off' })] : []),
-      projRow(withIcon('ebook', anyLaunch ? 'eBook (incl. launch)' : 'eBook'), 'ebook', { sub: c => `${Math.round(c.r.proj.ebUnits)} copies` }),
+      { label: 'Projected royalties', get: c => c.r.proj.total, fmt: moneyK, better: 'up', fields: ['unitsPbAmazon', 'unitsEb', 'months'],
+        sub: c => `${Math.round(c.r.proj.pbAmazonUnits + c.r.proj.pbEdUnits)} paperback + ${Math.round(c.r.proj.ebUnits)} eBook copies; print cost already deducted` },
+      projRow(withIcon('paperback', 'Paperback · Amazon'), 'pbAmazon', ['unitsPbAmazon'], { sub: c => `${Math.round(c.r.proj.pbAmazonUnits)} copies` }),
+      ...(anyEd ? [projRow(withIcon('paperback', 'Paperback · Expanded'), 'pbEd', ['unitsPbEd', 'ed'], { sub: c => c.inp.ed ? `${Math.round(c.r.proj.pbEdUnits)} copies` : 'off' })] : []),
+      projRow(withIcon('ebook', anyLaunch ? 'eBook (incl. launch)' : 'eBook'), 'ebook', ['unitsEb', 'launchPrice'], { sub: c => `${Math.round(c.r.proj.ebUnits)} copies` }),
       // Royalties already have print cost taken out by KDP; this also subtracts what you pay up front for author copies.
-      { label: 'After author copies', net: true, get: c => c.r.proj.total - c.r.author.total, fmt: moneyK, better: 'up',
+      { label: 'After author copies', net: true, get: c => c.r.proj.total - c.r.author.total, fmt: moneyK, better: 'up', fields: ['authorQty', 'unitsPbAmazon', 'unitsEb'],
         sub: () => 'projected royalties − author copies' },
     ] },
     { key: 'limit', title: 'Limits', rows: [
       { label: el('span', null, withIcon('paperback', 'Minimum paperback price'), anyEd ? ' ' : null, anyEd ? unverifiedTag('edMinDivisor') : null),
-        get: c => c.r.pb.min, fmt: money, sub: c => c.r.pb.byEd ? 'Expanded Distribution floor' : c.r.pb.reason },
-      { label: withIcon('ebook', 'Max eBook price for 70%'), get: c => c.r.eb.max70, fmt: money,
+        get: c => c.r.pb.min, fmt: money, fields: ['pages', 'trim', 'ed'], sub: c => c.r.pb.byEd ? 'Expanded Distribution floor' : c.r.pb.reason },
+      { label: withIcon('ebook', 'Max eBook price for 70%'), get: c => c.r.eb.max70, fmt: money, fields: ['pbPrice'],
         sub: c => c.r.eb.max70ByPrint < R('eb70Max') ? '20% under paperback' : `KDP's $${R('eb70Max')} cap` },
     ] },
   ];
 }
 
-/* Quick-edit fields under each case heading. Arrow keys step like the editor's drag grips:
-   2 pages (Shift: 10), or through prices ending .25/.49/.79/.95 and KDP's rate steps (Shift: a whole dollar). */
+/* Quick-edit fields under each case heading: the inputs most worth comparing. Arrow keys step like the editor's
+   drag grips: 2 pages (Shift: 10), prices through endings .25/.49/.79/.95 and KDP's rate steps (Shift: a whole dollar),
+   file size by 0.1 MB (Shift: 1 MB). */
 const QUICK_FIELDS = [
-  { id: 'pages', label: 'Pages', decimals: 0 },
-  { id: 'pbPrice', label: 'Paperback', decimals: 2 },
-  { id: 'ebPrice', label: 'eBook', decimals: 2 },
+  { id: 'pages', label: 'Pages', aria: 'page count' },
+  { id: 'pbPrice', label: 'Paperback', aria: 'paperback price', price: true },
+  { id: 'ebPrice', label: 'eBook', aria: 'eBook price', price: true },
+  { id: 'fileMB', label: 'File MB', aria: 'eBook file size in MB' },
 ];
 const priceFloor = (id, inp) => { const r = compute(inp); return id === 'pbPrice' ? r.pb.min : r.eb.minPrice; };
 function quickStep(i, f, dir, fast) {
   const inp = cases[i].inp;
   let v = inp[f.id];
-  if (f.id === 'pages') v = Math.min(R('printMaxPages'), Math.max(R('printMinPages'), Math.round((v + dir * (fast ? 10 : 2)) / 2) * 2));
-  else {
-    const floor = priceFloor(f.id, inp);
-    const extra = f.id === 'pbPrice' ? [floor, R('pbRateThreshold')] : [floor, R('eb70Min'), R('eb70Max')];
-    v = fast ? v + dir : nextPriceStop(v, dir, PRICE_STOPS, extra);
-    v = Number(Math.min(R(f.id === 'pbPrice' ? 'pbMaxPrice' : 'ebMaxPrice'), Math.max(floor, v)).toFixed(2));
-  }
-  return v;
+  if (f.id === 'pages') return Math.min(R('printMaxPages'), Math.max(R('printMinPages'), Math.round((v + dir * (fast ? 10 : 2)) / 2) * 2));
+  if (f.id === 'fileMB') return Math.max(0.1, Number((Math.round(v * 10) / 10 + dir * (fast ? 1 : 0.1)).toFixed(1)));
+  const floor = priceFloor(f.id, inp);
+  const extra = f.id === 'pbPrice' ? [floor, R('pbRateThreshold')] : [floor, R('eb70Min'), R('eb70Max')];
+  v = fast ? v + dir : nextPriceStop(v, dir, PRICE_STOPS, extra);
+  return Number(Math.min(R(f.id === 'pbPrice' ? 'pbMaxPrice' : 'ebMaxPrice'), Math.max(floor, v)).toFixed(2));
 }
 function quickField(i, f) {
-  const input = el('input', { type: 'number', inputmode: f.decimals ? 'decimal' : 'numeric', min: '0', step: f.decimals ? '0.01' : '1',
-    'aria-label': `Case ${i + 1} ${f.label.toLowerCase()}${f.decimals ? ' price' : ''}` });
-  const show = v => { input.value = f.decimals ? v.toFixed(2) : String(v); };
+  const input = el('input', { type: 'number', inputmode: f.id === 'pages' ? 'numeric' : 'decimal', min: '0', step: f.price ? '0.01' : f.id === 'fileMB' ? '0.1' : '1',
+    'aria-label': `Case ${i + 1} ${f.aria}`, 'data-field': f.id });
+  const show = v => { input.value = f.price ? v.toFixed(2) : String(v); };
   input.addEventListener('input', () => { const v = parseFloat(input.value); if (isFinite(v)) setCaseValue(i, f.id, v); });
   // On leaving the field: KDP's minimum list price is a hard floor, as in the editor.
   input.addEventListener('change', () => {
     let v = parseFloat(input.value);
     if (!isFinite(v)) v = cases[i].inp[f.id];
-    if (f.decimals) v = Math.max(v, priceFloor(f.id, cases[i].inp));
+    if (f.price) v = Math.max(v, priceFloor(f.id, cases[i].inp));
     show(v);
     if (v !== cases[i].inp[f.id]) setCaseValue(i, f.id, v);
   });
@@ -1094,7 +1098,7 @@ function quickField(i, f) {
 let sumHead = null;
 function buildSummaryHead(colgroup) {
   const headRow = el('tr');
-  const quickRow = el('tr', { class: 'quick-row' }, el('th', { class: 'sec' }), el('th', { class: 'rl', text: 'Page count and prices' }));
+  const quickRow = el('tr', { class: 'quick-row' }, el('th', { class: 'sec' }), el('th', { class: 'rl', text: 'Page count, prices and eBook size' }));
   const quick = cases.map((c, i) => {
     const fields = QUICK_FIELDS.map(f => quickField(i, f));
     const cell = el('td', null,
@@ -1288,12 +1292,15 @@ const caseRows = () => cases.map((c, i) => ({ name: `Case ${i + 1}: ${c.name}`, 
 /* ---------- cases: defaults for all cases, plus three cases that set their own value for some inputs ----------
    The active case is the one the editor last showed. */
 const STORE_CASES_V1 = 'kdpPlanner.cases.v1';
-const STORE_CASES = 'kdpPlanner.cases.v2';
+const STORE_CASES_V2 = 'kdpPlanner.cases.v2';
+const STORE_CASES = 'kdpPlanner.cases.v3';
 const STORE_ACTIVE = 'kdpPlanner.activeCase.v1';
 const STORE_SHOWN = 'kdpPlanner.casesOnCharts.v1';
 const CASE_COLORS = ['--slot1', '--slot2', '--slot3'];
 const CASE_DEFAULTS = { pages: 130, trim: 'regular', paper: 'white', fileMB: 1, deliveryPerMB: R('ebDeliveryPerMB'), pbPrice: 9.99, ebPrice: 4.99, ed: false,
-  launchPrice: 0, launchDays: 0, unitsPbAmazon: 20, unitsPbEd: 4, unitsEb: 30, months: 12, authorQty: 100, authorShipTotal: 0 };
+  launchPrice: 0, launchDays: 0, unitsPbAmazon: 100, unitsPbEd: 10, unitsEb: 100, months: 1, authorQty: 100, authorShipTotal: 0 };
+// Sales are placeholders (100 copies of each format) so cases compare per 100 sales, not as a forecast.
+const SALES_IDS = ['unitsPbAmazon', 'unitsPbEd', 'unitsEb', 'months'];
 // Starting points only: a low, a middle and a higher price. Everything else follows the defaults.
 const CASE_PRESETS = [
   { name: 'Low price', over: { pbPrice: 7.95, ebPrice: 3.99 } },
@@ -1307,11 +1314,23 @@ const sameVal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const diffFromDefaults = inp => Object.fromEntries(INPUT_IDS.filter(id => !sameVal(inp[id], defaults[id])).map(id => [id, inp[id]]));
 let defaults, cases;
 (function loadCases() {
+  const valid = v => v && typeof v.defaults === 'object' && Array.isArray(v.cases) && v.cases.length === 3 && v.cases.every(c => c && typeof c.over === 'object');
   const saved = storeGet(STORE_CASES, null);
-  if (saved && typeof saved.defaults === 'object' && Array.isArray(saved.cases) && saved.cases.length === 3 && saved.cases.every(c => c && typeof c.over === 'object')) {
+  if (valid(saved)) {
     defaults = { ...CASE_DEFAULTS, ...saved.defaults };
     cases = saved.cases.map(c => makeCase(c.name, c.over));
     return;
+  }
+  // Cases saved before sales became placeholders: everything carries over except the sales guesses.
+  const resetSales = () => {
+    for (const id of SALES_IDS) { defaults[id] = CASE_DEFAULTS[id]; cases.forEach(c => delete c.over[id]); }
+    storeSet(STORE_CASES, { defaults, cases });
+  };
+  const v2 = storeGet(STORE_CASES_V2, null);
+  if (valid(v2)) {
+    defaults = { ...CASE_DEFAULTS, ...v2.defaults };
+    cases = v2.cases.map(c => makeCase(c.name, c.over));
+    return resetSales();
   }
   // Cases saved before defaults existed hold every input. For each one, the value most cases share becomes
   // the default and a case keeps its own value only where it differs. When all three differ, Case 1's
@@ -1328,7 +1347,7 @@ let defaults, cases;
     }));
     cases = old.map((c, i) => makeCase(c.name === 'Wide distribution' ? 'Wide reach' : c.name,
       { ...diffFromDefaults(full[i]), ...Object.fromEntries(split.map(id => [id, full[i][id]])) }));
-    return;
+    return resetSales();
   }
   defaults = { ...CASE_DEFAULTS };
   cases = CASE_PRESETS.map(p => makeCase(p.name, p.over));
