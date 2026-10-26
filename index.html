@@ -251,12 +251,13 @@
   table.sum th, table.sum td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: right; }
   table.sum th.sec, table.sum tr.base-row > *, table.sum tr.head-row > th:not(.cc), table.sum thead tr:last-child > *:not(.cc), table.sum tr.gap > *:not(.cc), table.sum tbody tr:last-child > *:not(.cc) { border-bottom: 0; }
   /* The case cards */
-  table.sum .cc { --hov-1: color-mix(in srgb, var(--case) 5%, var(--surface)); --hov-2: color-mix(in srgb, var(--case) 12%, var(--surface)); background: var(--surface); border-left: 1px solid var(--border); border-right: 1px solid var(--border); transition: background-color .12s; }
+  table.sum .cc { --hov-col: color-mix(in srgb, var(--case) 1.5%, var(--surface)); --hov-1: color-mix(in srgb, var(--case) 5%, var(--surface)); --hov-2: color-mix(in srgb, var(--case) 12%, var(--surface)); background: var(--surface); border-left: 1px solid var(--border); border-right: 1px solid var(--border); transition: background-color .12s; }
   table.sum th.case { border-top: 3px solid var(--case); border-radius: 10px 10px 0 0; }
   table.sum tbody:last-child tr:last-child > .cc { border-radius: 0 0 10px 10px; }
   table.sum tr.gap > * { height: 10px; padding: 0; }
   /* Hover: the cell under the pointer, then its row and its case's column, each a lighter tint of its case's colour. */
-  table.sum tr.hov-row > .cc, table.sum[data-hcol="0"] .cc[data-col="0"], table.sum[data-hcol="1"] .cc[data-col="1"], table.sum[data-hcol="2"] .cc[data-col="2"] { background: var(--hov-1); }
+  table.sum[data-hcol="0"] .cc[data-col="0"], table.sum[data-hcol="1"] .cc[data-col="1"], table.sum[data-hcol="2"] .cc[data-col="2"] { background: var(--hov-col); }
+  table.sum tr.hov-row > .cc { background: var(--hov-1); }
   table.sum[data-hcol] .cc.hov, table.sum tr.hov-row > .cc.hov { background: var(--hov-2); }
   table.sum tr.gap > .cc { background: var(--gap-bg) !important; }
   table.sum th.rl { transition: background-color .12s; }
@@ -1527,8 +1528,8 @@ function resetCase() {
    TODO: let people save the current three cases as their own "Compare:" preset (a chip next to these,
    stored like scenarios, included in the "all presets" PDF, with a way to rename and delete it). */
 const COMPARE_TEMPLATES = [
-  { label: 'Price: low – high', build: d => [-1, 0, 1].map(k => ({ pbPrice: d.pbPrice + 2 * k, ebPrice: d.ebPrice + k })),
-    name: o => `${money(o.pbPrice)} / ${money(o.ebPrice)}`, what: 'paperback ±$2 and eBook ±$1 around the default prices' },
+  { label: 'Price: low – high', build: d => [{ pbPrice: d.pbPrice - 2, ebPrice: d.ebPrice - 1 }, { pbPrice: 9.99, ebPrice: 4.99 }, { pbPrice: 12.95, ebPrice: 7.99 }],
+    name: o => `${money(o.pbPrice)} / ${money(o.ebPrice)}`, what: 'paperback $2 and eBook $1 under the default prices, $9.99 / $4.99, and $12.95 / $7.99' },
   { label: 'Paperback near $9.99', build: () => [8.99, 9.99, 10.99].map(pbPrice => ({ pbPrice })),
     name: o => `${money(o.pbPrice)} paperback`, what: "either side of KDP's 60% step" },
   { label: 'eBook price ±$2', build: d => [-2, 0, 2].map(k => ({ ebPrice: d.ebPrice + k })),
