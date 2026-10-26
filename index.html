@@ -220,6 +220,12 @@
   .sum-title { display: flex; align-items: baseline; gap: 12px; }
   .sum-title button { margin-left: auto; }
   .sum-body { margin-top: 8px; }
+  /* Compare: templates that set up the three cases to differ in one input. */
+  .tpl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+  .tpl-bar .lbl { font-weight: 650; margin-right: 2px; }
+  button.tpl { border-radius: 99px; padding: 3px 11px; font-size: 12px; }
+  button.tpl:hover { border-color: var(--accent); }
+  button.tpl[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
   /* Quick-edit fields under each case heading: page count and both prices on one line. */
   table.sum tr.quick-row > * { padding-top: 4px; }
   .quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
@@ -487,6 +493,7 @@
     <section id="summarySection">
       <div class="sum-title"><h2>Summary</h2>
         <button class="small" id="openDefaults" type="button" title="Inputs every case uses unless it sets its own">Defaults for all cases…</button></div>
+      <div class="tpl-bar" id="compareTpl" role="group" aria-label="Compare"></div>
       <p class="note sum-note">Small figures show the difference from
         <select id="baselineCase" class="inline-select" aria-label="Case to compare against"><option value="0">Case 1</option><option value="1">Case 2</option><option value="2">Case 3</option></select>.
         Click a case's heading to edit all its inputs.</p>
@@ -1460,6 +1467,51 @@ function resetCase() {
   commitHistory();
 }
 
+/* ---------- Compare: one click sets up the three cases to differ in just one thing ----------
+   A template builds each case's own values around the defaults; everything else follows the defaults.
+   Prices are kept at or above KDP's minimum for that case. */
+const COMPARE_TEMPLATES = [
+  { label: 'Price: low – high', build: d => [-1, 0, 1].map(k => ({ pbPrice: d.pbPrice + 2 * k, ebPrice: d.ebPrice + k })),
+    name: o => `${money(o.pbPrice)} / ${money(o.ebPrice)}`, what: 'paperback ±$2 and eBook ±$1 around the default prices' },
+  { label: 'Paperback around $9.99', build: () => [8.99, 9.99, 10.99].map(pbPrice => ({ pbPrice })),
+    name: o => `${money(o.pbPrice)} paperback`, what: "either side of KDP's 60% step" },
+  { label: 'eBook price ±$2', build: d => [-2, 0, 2].map(k => ({ ebPrice: d.ebPrice + k })),
+    name: o => `${money(o.ebPrice)} eBook`, what: 'around the default eBook price' },
+  { label: 'Page count ±10', build: d => [-10, 0, 10].map(k => ({ pages: d.pages + k })),
+    name: o => `${o.pages} pages`, what: 'around the default page count' },
+  { label: 'eBook size 0.1 · 0.5 · 1 MB', build: () => [0.1, 0.5, 1].map(fileMB => ({ fileMB })),
+    name: o => `${o.fileMB} MB eBook`, what: 'which changes the delivery fee on 70% sales' },
+  { label: 'Expanded Distribution', build: d => [{ ed: false }, { ed: true }, { ed: true, pbPrice: d.pbPrice + 2 }],
+    name: o => !o.ed ? 'Amazon only' : 'pbPrice' in o ? `Expanded, ${money(o.pbPrice)}` : 'Expanded Distribution', what: 'off, on, and on with the paperback $2 higher' },
+];
+function templateCases(t) {
+  return t.build(defaults).map(o => {
+    if ('pages' in o) o.pages = Math.max(R('printMinPages'), o.pages);
+    const r = compute({ ...defaults, ...o });
+    const pb = roundCents(o.pbPrice ?? defaults.pbPrice), eb = roundCents(o.ebPrice ?? defaults.ebPrice);
+    if ('pbPrice' in o || pb < r.pb.min - EPS) o.pbPrice = Math.max(pb, r.pb.min);
+    if ('ebPrice' in o || eb < r.eb.minPrice - EPS) o.ebPrice = Math.max(eb, r.eb.minPrice);
+    return o;
+  });
+}
+const sameOver = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => k in b && sameVal(a[k], b[k]));
+const templateActive = t => templateCases(t).every((o, i) => sameOver(cases[i].over, o));
+function applyTemplate(t) {
+  if (undoHistory.timer) commitHistory();
+  cases = templateCases(t).map(o => makeCase(t.name(o), o));
+  saveCases(); refreshForm(); update(); commitHistory();
+}
+function renderCompareTemplates() {
+  const bar = $('compareTpl');
+  bar.replaceChildren(el('span', { class: 'lbl', text: 'Compare:' }));
+  for (const t of COMPARE_TEMPLATES) {
+    const on = templateActive(t);
+    const preview = templateCases(t).map((o, i) => `Case ${i + 1}: ${t.name(o)}`).join(' · ');
+    bar.append(el('button', { class: 'tpl', type: 'button', 'aria-pressed': String(on), text: t.label, onclick: () => applyTemplate(t),
+      title: `${preview}\nSets up the three cases to differ only in this (${t.what}); everything else follows the defaults. Undo with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.` }));
+  }
+}
+
 /* ---------- undo / redo: snapshots of every case and saved scenario ----------
    Typing and dragging are grouped: a snapshot is taken once edits pause for half a second.
    Switching tabs isn't an edit; undo jumps to the case that changed so you can see it. */
@@ -2072,6 +2124,7 @@ function update() {
   // In the defaults it stays editable, since any case can turn Expanded Distribution on.
   $('unitsPbEd').disabled = formMode === 'case' && !form.ed;
   renderSpine(compute(form));
+  renderCompareTemplates();
   renderSummary();
   renderGuidance();
   const inp = cases[activeCase].inp;
