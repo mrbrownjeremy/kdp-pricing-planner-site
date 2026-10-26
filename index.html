@@ -212,14 +212,12 @@
   .info { cursor: help; color: var(--muted); border-bottom: 1px dotted var(--muted); }
   main section { margin-bottom: 22px; }
   h2 { font-size: 15px; margin: 0 0 10px; }
-  /* Summary: one column per case, sections stacked with a rotated label on the left. */
-  /* Summary: a header block plus one block per section (Costs, Earnings, Limits, Warnings).
-     Every block is its own table with the same fixed column widths, so the columns line up across the gaps. */
+  /* Summary: one table. Each case's column is drawn as its own card (border-spacing leaves the gaps between them);
+     row labels and the rotated section labels sit outside the cards. */
   #summarySection { max-width: var(--summary-max, 900px); margin-left: auto; margin-right: auto; }
   .sum-note { margin: -4px 0 8px; }
   .sum-title { display: flex; align-items: baseline; gap: 12px; }
-  .sum-title button { margin-left: auto; }
-  .sum-body { margin-top: 8px; }
+  .sum-actions { margin-left: auto; display: flex; gap: 6px; }
   /* Right-click menu */
   .ctx-menu { position: fixed; z-index: 60; min-width: 220px; max-width: min(360px, calc(100vw - 8px)); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   .ctx-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; border-radius: 5px; font-size: 13px; }
@@ -232,7 +230,6 @@
   .tpl-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 0 0 10px; }
   .tpl-bar .lbl { font-weight: 650; }
   .tpl-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
-  .tpl-export { margin-left: 4px; font-size: 12px; color: var(--muted); }
   button.tpl { border-radius: 99px; padding: 3px 11px; font-size: 12px; }
   button.tpl:hover { border-color: var(--accent); }
   button.tpl[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
@@ -245,37 +242,54 @@
   .quick input::-webkit-inner-spin-button, .quick input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   button.more-link { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); text-align: left; }
   button.more-link:hover { color: var(--text); }
-  .inline-select { width: auto; display: inline-block; padding: 1px 4px; font-size: 12px; }
-  table.sum th.case .base-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 0 5px; margin-right: 6px; vertical-align: 1px; }
   .sum-wrap { overflow-x: auto; }
   .sum-wrap > * { min-width: 860px; }
-  .sum-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .sum-block + .sum-block { margin-top: 8px; }
-  table.sum { border-collapse: collapse; width: 100%; table-layout: fixed; font-variant-numeric: tabular-nums; }
-  table.sum col.c-sec { width: 30px; }
+  table.sum { border-collapse: separate; border-spacing: 10px 0; margin: 0 -10px; width: calc(100% + 20px); table-layout: fixed; font-variant-numeric: tabular-nums;
+    --hov-1: color-mix(in srgb, var(--text) 2.5%, var(--surface)); --hov-2: color-mix(in srgb, var(--text) 6%, var(--surface)); --gap-bg: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
+  table.sum col.c-sec { width: 22px; }
   table.sum col.c-label { width: 150px; }
   table.sum th, table.sum td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: right; }
-  table.sum tr:last-child > * { border-bottom: 0; }
+  table.sum th.sec, table.sum tr.base-row > *, table.sum tr.head-row > th:not(.cc), table.sum thead tr:last-child > *:not(.cc), table.sum tr.gap > *:not(.cc), table.sum tbody tr:last-child > *:not(.cc) { border-bottom: 0; }
+  /* The case cards */
+  table.sum .cc { background: var(--surface); border-left: 1px solid var(--border); border-right: 1px solid var(--border); transition: background-color .12s; }
+  table.sum th.case { border-top: 3px solid var(--case); border-radius: 10px 10px 0 0; }
+  table.sum tbody:last-child tr:last-child > .cc { border-radius: 0 0 10px 10px; }
+  table.sum tr.gap > * { height: 10px; padding: 0; }
+  /* Hover: the cell under the pointer, then its row and its case's column, each a shade lighter. */
+  table.sum tr.hov-row > .cc, table.sum[data-hcol="0"] .cc[data-col="0"], table.sum[data-hcol="1"] .cc[data-col="1"], table.sum[data-hcol="2"] .cc[data-col="2"] { background: var(--hov-1); }
+  table.sum[data-hcol] .cc.hov, table.sum tr.hov-row > .cc.hov { background: var(--hov-2); }
+  table.sum tr.gap > .cc { background: var(--gap-bg) !important; }
+  table.sum th.rl { transition: background-color .12s; }
+  table.sum tr.hov-row > th.rl { background: color-mix(in srgb, var(--text) 3%, transparent); border-radius: 6px; }
+  /* Baseline strip above the case headings: the baseline's tag, or a button that shows on hover to make that case the baseline. */
+  table.sum tr.base-row > td { padding: 0 2px 5px; vertical-align: bottom; }
+  table.sum .base-tag, table.sum .base-set { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; line-height: 16px; border-radius: 99px; padding: 1px 8px; }
+  table.sum .base-tag { color: var(--muted); border: 1px solid var(--border); background: var(--surface); cursor: default; }
+  table.sum .base-set { color: var(--muted); border: 1px dashed transparent; background: none; cursor: pointer; opacity: 0; transition: opacity .12s; }
+  table.sum[data-hcol="0"] td.base-zone[data-col="0"] .base-set, table.sum[data-hcol="1"] td.base-zone[data-col="1"] .base-set, table.sum[data-hcol="2"] td.base-zone[data-col="2"] .base-set { opacity: 0.6; }
+  table.sum .base-set:hover, table.sum .base-set:focus-visible { opacity: 1 !important; border-color: var(--border); color: var(--text); background: var(--surface); }
+  /* Section labels: rotated, beside a thin bracket in the section's colour. */
+  table.sum th.sec { padding: 6px 0; text-align: center; vertical-align: middle; position: relative; }
+  table.sum tbody th.sec::after { content: ""; position: absolute; right: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: color-mix(in srgb, var(--group) 35%, transparent); }
+  table.sum th.sec span { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.08em; color: var(--group); white-space: nowrap; margin-right: 6px; }
   table.sum .rl { text-align: left; font-size: 13px; font-weight: 650; color: var(--text); line-height: 1.3; }
   table.sum .rl .fmt-icon { color: var(--muted); }
   table.sum tr.minor .rl { padding-left: 22px; font-size: 12px; font-weight: 400; color: var(--muted); }
-  table.sum th.sec { padding: 8px 4px; text-align: center; vertical-align: middle; background: var(--surface-2); border-right: 1px solid var(--border); border-bottom: 0; }
-  table.sum th.sec span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.08em; color: var(--group); white-space: nowrap; }
-  table.sum.earn { --group: var(--earn); }
-  table.sum.cost { --group: var(--cost); }
-  table.sum.limit { --group: var(--muted); }
-  table.sum.warn { --group: var(--amber); }
-  table.sum.warn td { text-align: left; min-height: 90px; }
-  table.sum.warn tr { height: 96px; }
+  table.sum tbody.earn { --group: var(--earn); }
+  table.sum tbody.cost { --group: var(--cost); }
+  table.sum tbody.limit { --group: var(--muted); }
+  table.sum tbody.warn { --group: var(--amber); }
+  table.sum tbody.warn td { text-align: left; min-height: 90px; }
+  table.sum tbody.warn tr:not(.gap) { height: 96px; }
   /* Warnings in the summary are plain coloured text, not boxed chips, and they wrap. */
-  table.sum.warn td > div:first-child { white-space: normal; }
-  table.sum.warn .chips { flex-direction: column; align-items: stretch; gap: 6px; }
-  table.sum.warn .chip { font-size: 12px; line-height: 1.4; padding: 0 0 0 12px; border: 0; border-radius: 0; background: none; position: relative; }
-  table.sum.warn .chip::before { content: ""; position: absolute; left: 0; top: 0.5em; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-  table.sum.warn .chip.ok { color: var(--muted); padding-left: 0; }
-  table.sum.warn .chip.ok::before { display: none; }
+  table.sum tbody.warn td > div:first-child { white-space: normal; }
+  table.sum tbody.warn .chips { flex-direction: column; align-items: stretch; gap: 6px; }
+  table.sum tbody.warn .chip { font-size: 12px; line-height: 1.4; padding: 0 0 0 12px; border: 0; border-radius: 0; background: none; position: relative; }
+  table.sum tbody.warn .chip::before { content: ""; position: absolute; left: 0; top: 0.5em; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  table.sum tbody.warn .chip.ok { color: var(--muted); padding-left: 0; }
+  table.sum tbody.warn .chip.ok::before { display: none; }
   table.sum .v { font-size: 16px; font-weight: 650; }
-  table.sum.earn .v, table.sum.cost .v { color: var(--group); }
+  table.sum tbody.earn .v, table.sum tbody.cost .v { color: var(--group); }
   table.sum tr.minor .v { font-size: 13px; font-weight: 500; color: var(--text); }
   table.sum tr.net .v { font-size: 16px; }
   table.sum .v.neg { color: var(--red) !important; }
@@ -287,10 +301,8 @@
   table.sum .d.neutral { color: var(--muted); }
   table.sum th.case { border-top: 3px solid var(--case); cursor: pointer; font-size: 13px; }
   table.sum th.case .nm { display: block; font-size: 11px; font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  table.sum th.case:hover { background: var(--surface-2); }
   table.sum th.case .edit { color: var(--muted); font-weight: 400; }
-  table.sum th.case:hover .edit { color: var(--text); }
-  table.sum .active { background: color-mix(in srgb, var(--case) 7%, transparent); }
+  table.sum th.case:hover .edit, table.sum th.case:hover .nm { color: var(--text); }
   /* Header with the settings button */
   header { display: flex; align-items: flex-start; gap: 16px; }
   header .head-text { flex: 1; }
@@ -502,10 +514,12 @@
   <main>
     <section id="summarySection">
       <div class="sum-title"><h2>Summary</h2>
-        <button class="small" id="openDefaults" type="button" title="Inputs every case uses unless it sets its own">Defaults for all cases…</button></div>
+        <div class="sum-actions">
+          <button class="small" id="openDefaults" type="button" title="Inputs every case uses unless it sets its own">Defaults for all cases…</button>
+          <button class="small" id="openExport" type="button" aria-haspopup="menu" title="Save the comparison, every Compare: preset, or your cases and scenarios">Export ▾</button>
+        </div></div>
       <div class="tpl-bar" id="compareTpl" role="group" aria-label="Compare"></div>
-      <p class="note sum-note">Small figures show the difference from
-        <select id="baselineCase" class="inline-select" aria-label="Case to compare against"><option value="0">Case 1</option><option value="1">Case 2</option><option value="2">Case 3</option></select>.
+      <p class="note sum-note">Small figures show the difference from the baseline case; hover over another case's heading and click "Make baseline" above it to switch.
         Click a case's heading to edit all its inputs.</p>
       <div class="sum-wrap" id="summary"></div>
     </section>
@@ -1113,46 +1127,71 @@ function quickField(i, f) {
   return { f, input, show };
 }
 
-// The header block is built once and updated in place, so a quick-edit field keeps focus while the summary redraws.
+// The heading rows are built once and updated in place, so a quick-edit field keeps focus while the summary redraws.
+// Everything is one table: each case's column is drawn as its own card, the labels sit outside the cards.
 let sumHead = null;
-function buildSummaryHead(colgroup) {
-  const headRow = el('tr');
+function buildSummaryHead() {
+  const caseCols = cases.map(() => el('col'));
+  const baseRow = el('tr', { class: 'base-row' }, el('th', { class: 'sec' }), el('th'));
+  const headRow = el('tr', { class: 'head-row' });
   const quickRow = el('tr', { class: 'quick-row' }, el('th', { class: 'sec' }), el('th', { class: 'rl', text: 'Page count, prices and eBook size' }));
   const quick = cases.map((c, i) => {
     const fields = QUICK_FIELDS.map(f => quickField(i, f));
-    const cell = el('td', null,
+    const cell = el('td', { class: 'cc', 'data-col': String(i) },
       el('div', { class: 'quick' }, ...fields.map(q => el('label', { title: `Case ${i + 1}'s own value` }, el('span', { text: q.f.label }), q.input))),
       el('button', { class: 'link-btn more-link', type: 'button', text: 'More edit options', onclick: () => openCase(i) }));
     cell.addEventListener('contextmenu', e => showMenu(e, caseMenuItems(i, QUICK_FIELDS.map(f => f.id))));
     quickRow.append(cell);
     return { cell, fields };
   });
-  const block = el('div', { class: 'sum-block' }, el('table', { class: 'sum head' }, colgroup(), el('tbody', null, headRow, quickRow)));
-  const body = el('div', { class: 'sum-body' });
-  $('summary').append(block, body);
-  sumHead = { headRow, quick, body };
+  const table = el('table', { class: 'sum' },
+    el('colgroup', null, el('col', { class: 'c-sec' }), el('col', { class: 'c-label' }), ...caseCols),
+    el('thead', null, baseRow, headRow, quickRow));
+  initSummaryHover(table);
+  $('summary').append(table);
+  sumHead = { table, baseRow, headRow, quick };
+}
+
+/* Hover: the cell under the pointer is shaded a little, the rest of its row and its case's column even less. */
+function initSummaryHover(table) {
+  const clear = () => {
+    delete table.dataset.hcol;
+    table.querySelectorAll('.hov-row, .hov').forEach(n => n.classList.remove('hov-row', 'hov'));
+  };
+  table.addEventListener('pointerover', e => {
+    const cell = e.target.closest('td, th'), tr = cell && cell.parentElement;
+    if (!cell || !table.contains(cell) || tr.classList.contains('gap')) return;
+    clear();
+    if (cell.dataset.col != null) table.dataset.hcol = cell.dataset.col;
+    if (!tr.classList.contains('base-row')) tr.classList.add('hov-row');
+    if (cell.classList.contains('cc')) cell.classList.add('hov');
+  });
+  table.addEventListener('pointerleave', clear);
 }
 
 function renderSummary() {
   const cols = cases.map((c, i) => ({ i, name: caseTitle(i), inp: c.inp, r: compute(c.inp), color: `var(${CASE_COLORS[i]})` }));
-  const colgroup = () => el('colgroup', null, el('col', { class: 'c-sec' }), el('col', { class: 'c-label' }), ...cols.map(() => el('col')));
-  if (!sumHead) buildSummaryHead(colgroup);
-  const wrap = sumHead.body; wrap.replaceChildren();
-  const block = (cls, ...rows) => el('div', { class: 'sum-block' }, el('table', { class: 'sum ' + cls }, colgroup(), el('tbody', null, ...rows)));
-  const caseCell = (c, extra = {}) => el('td', { class: c.i === activeCase ? 'active' : '', style: `--case:${c.color}`, ...extra });
+  if (!sumHead) buildSummaryHead();
+  const { table } = sumHead;
+  table.querySelectorAll('tbody').forEach(n => n.remove());
+  const caseCell = (c, extra = {}) => el('td', { class: 'cc', 'data-col': String(c.i), style: `--case:${c.color}`, ...extra });
+  // A thin band between sections, inside the case cards.
+  const gapRow = () => el('tr', { class: 'gap' }, el('th', { class: 'sec' }), el('th'), ...cols.map(c => caseCell(c)));
 
-  // Differences are shown against the baseline case chosen above the table (Case 1 unless changed).
+  // Differences are shown against the baseline case, picked from the strip above the case headings.
   const baseIdx = settings.baseline;
-  [...$('baselineCase').options].forEach((o, i) => { o.textContent = `Case ${i + 1}: ${caseTitle(i)}`; });
+  sumHead.baseRow.replaceChildren(el('th', { class: 'sec' }), el('th'));
+  cols.forEach(c => sumHead.baseRow.append(el('td', { class: 'base-zone', 'data-col': String(c.i) },
+    c.i === baseIdx
+      ? el('span', { class: 'base-tag', title: 'Other cases show their difference from this one', text: 'Baseline' })
+      : el('button', { class: 'base-set', type: 'button', text: 'Make baseline', title: `Show the other cases' differences from Case ${c.i + 1}`, onclick: () => setBaseline(c.i) }))));
   const head = sumHead.headRow;
   head.replaceChildren(el('th', { class: 'sec' }), el('th', { class: 'rl' }));
   cols.forEach(c => head.append(el('th', {
-    class: 'case' + (c.i === activeCase ? ' active' : ''), style: `--case:${c.color}`, title: `Edit Case ${c.i + 1}'s inputs`, onclick: () => openCase(c.i),
+    class: 'case cc', 'data-col': String(c.i), style: `--case:${c.color}`, title: `Edit Case ${c.i + 1}'s inputs`, onclick: () => openCase(c.i),
     oncontextmenu: e => showMenu(e, caseMenuItems(c.i)) },
-    c.i === baseIdx ? el('span', { class: 'base-tag', title: 'Other cases show their difference from this one', text: 'baseline' }) : null,
     `Case ${c.i + 1} `, el('span', { class: 'edit', text: '✎' }), el('span', { class: 'nm', text: c.name }))));
   sumHead.quick.forEach((q, i) => {
-    q.cell.className = i === activeCase ? 'active' : '';
     q.cell.style.setProperty('--case', cols[i].color);
     for (const { f, input, show } of q.fields) {
       const v = cols[i].inp[f.id];
@@ -1186,7 +1225,7 @@ function renderSummary() {
       });
       return tr;
     });
-    wrap.append(block(sec.key, ...rows));
+    table.append(el('tbody', { class: sec.key }, gapRow(), ...rows));
   }
 
   // Warnings: KDP rule problems for each case, in that case's column.
@@ -1200,7 +1239,7 @@ function renderSummary() {
     cell.append(chips);
     warnRow.append(cell);
   });
-  wrap.append(block('warn', warnRow));
+  table.append(el('tbody', { class: 'warn' }, gapRow(), warnRow));
 }
 
 function renderSpine(r) {
@@ -1527,9 +1566,6 @@ function renderCompareTemplates() {
     list.append(el('button', { class: 'tpl', type: 'button', 'aria-pressed': String(on), text: t.label, onclick: () => applyTemplate(t),
       title: `${preview}\nSets up the three cases to differ only in this (${t.what}); everything else follows the defaults. Undo with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.` }));
   }
-  list.append(el('span', { class: 'tpl-export' }, 'Export PDF: ',
-    el('button', { class: 'link-btn', type: 'button', text: 'this comparison', title: 'The three cases as they are now, with the summary and charts', onclick: exportComparison }), ' · ',
-    el('button', { class: 'link-btn', type: 'button', text: 'all presets', title: 'The three cases each preset would set up, built from the current defaults', onclick: exportPresets })));
 }
 
 /* ---------- undo / redo: snapshots of every case and saved scenario ----------
@@ -2223,7 +2259,6 @@ if (![0, 1, 2].includes(settings.baseline)) settings.baseline = 0;
 function applySettings() {
   document.documentElement.style.setProperty('--summary-max', settings.summaryWidth);
   $('summaryWidth').value = settings.summaryWidth;
-  $('baselineCase').value = String(settings.baseline);
 }
 function initSettings() {
   const dlg = $('settingsDialog');
@@ -2231,7 +2266,6 @@ function initSettings() {
   $('settingsDone').addEventListener('click', () => dlg.close());
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
   $('summaryWidth').addEventListener('change', e => { settings.summaryWidth = e.target.value; storeSet(STORE_SETTINGS, settings); applySettings(); });
-  $('baselineCase').addEventListener('change', e => { settings.baseline = Number(e.target.value); storeSet(STORE_SETTINGS, settings); update(); });
   applySettings();
 }
 
@@ -2296,7 +2330,23 @@ function generalMenuItems(fields = [], caseIdx = [0, 1, 2]) {
   ];
 }
 let ctxMenu = null;
-function closeMenu() { if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; } }
+function closeMenu() { if (ctxMenu) { menuClosed = { from: ctxMenu.dataset.from, t: performance.now() }; ctxMenu.remove(); ctxMenu = null; } }
+let menuClosed = { from: null, t: 0 };
+// The Export button's menu opens under the button; a second click on the button closes it.
+function openExportMenu(e) {
+  const btn = e.currentTarget;
+  if (menuClosed.from === 'export' && performance.now() - menuClosed.t < 400) return;
+  const r = btn.getBoundingClientRect();
+  showMenu({ target: btn, preventDefault() {}, clientX: r.left, clientY: r.bottom + 4 }, [
+    { label: 'Comparison PDF: the three cases, summary and charts', run: exportComparison },
+    { label: 'All Compare presets PDF: a page per preset', run: exportPresets },
+    'sep',
+    { label: 'CSV: the three cases and saved scenarios', run: exportCsv },
+  ]);
+  if (!ctxMenu) return;
+  ctxMenu.dataset.from = 'export';
+  ctxMenu.style.left = Math.max(4, r.right - ctxMenu.offsetWidth) + 'px';
+}
 function showMenu(e, items) {
   if (e.target.closest && e.target.closest('a, input, select, textarea')) return;
   e.preventDefault(); closeMenu(); hideTip();
@@ -2425,6 +2475,7 @@ window.runSpotChecks = runSpotChecks;
       { value: R('eb70Min'), label: '70% min', title: 'Lowest price that can earn the 70% eBook rate' },
       { value: R('eb70Max'), label: '70% max', title: 'Highest price that can earn the 70% eBook rate' } ] });
   $('exportCsv').addEventListener('click', exportCsv);
+  $('openExport').addEventListener('click', openExportMenu);
   $('exportComparison').addEventListener('click', exportComparison);
   $('exportPresets').addEventListener('click', exportPresets);
   document.querySelectorAll('i[data-fmt]').forEach(i => i.replaceWith(fmtIcon(i.dataset.fmt)));
