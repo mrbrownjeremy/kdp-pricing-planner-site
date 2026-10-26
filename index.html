@@ -231,7 +231,8 @@
   /* Compare: templates that set up the three cases to differ in one input. */
   .tpl-bar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 0 0 10px; }
   .tpl-bar .lbl { font-weight: 650; }
-  .tpl-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tpl-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+  .tpl-export { margin-left: 4px; font-size: 12px; color: var(--muted); }
   button.tpl { border-radius: 99px; padding: 3px 11px; font-size: 12px; }
   button.tpl:hover { border-color: var(--accent); }
   button.tpl[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
@@ -533,7 +534,9 @@
     <section>
       <h2>Cases and saved scenarios</h2>
       <div class="toolbar">
-        <button id="exportCsv">Export CSV</button>
+        <button id="exportCsv" title="The three cases and every saved scenario">Export CSV</button>
+        <button id="exportComparison" title="Just the three cases as they are now">Export current comparison</button>
+        <button id="exportPresets" title="The three cases each Compare: preset would set up, built from the current defaults">Export all Compare presets</button>
         <span class="note" style="margin:0">Save a case as a scenario from the case editor (click a case heading in the summary). Load puts a scenario into the case you last edited.</span>
       </div>
       <div class="table-scroll"><table class="scen" id="scenTable"></table></div>
@@ -1480,7 +1483,9 @@ function resetCase() {
 
 /* ---------- Compare: one click sets up the three cases to differ in just one thing ----------
    A template builds each case's own values around the defaults; everything else follows the defaults.
-   Prices are kept at or above KDP's minimum for that case. */
+   Prices are kept at or above KDP's minimum for that case.
+   TODO: let people save the current three cases as their own "Compare:" preset (a chip next to these,
+   stored like scenarios, included in "Export all Compare presets", with a way to rename and delete it). */
 const COMPARE_TEMPLATES = [
   { label: 'Price: low – high', build: d => [-1, 0, 1].map(k => ({ pbPrice: d.pbPrice + 2 * k, ebPrice: d.ebPrice + k })),
     name: o => `${money(o.pbPrice)} / ${money(o.ebPrice)}`, what: 'paperback ±$2 and eBook ±$1 around the default prices' },
@@ -1522,6 +1527,9 @@ function renderCompareTemplates() {
     list.append(el('button', { class: 'tpl', type: 'button', 'aria-pressed': String(on), text: t.label, onclick: () => applyTemplate(t),
       title: `${preview}\nSets up the three cases to differ only in this (${t.what}); everything else follows the defaults. Undo with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.` }));
   }
+  list.append(el('span', { class: 'tpl-export' }, 'Export CSV: ',
+    el('button', { class: 'link-btn', type: 'button', text: 'this comparison', title: 'Just the three cases as they are now', onclick: exportComparison }), ' · ',
+    el('button', { class: 'link-btn', type: 'button', text: 'all presets', title: 'The three cases each preset would set up, built from the current defaults', onclick: exportPresets })));
 }
 
 /* ---------- undo / redo: snapshots of every case and saved scenario ----------
@@ -1639,14 +1647,30 @@ function saveScenario() {
   setTimeout(() => { btn.textContent = 'Save as scenario'; }, 1400);
 }
 
-function exportCsv() {
+// `lead` adds columns before SCEN_COLS: [[heading, row => value], ...].
+function downloadCsv(filename, rows, lead = []) {
   const esc = v => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const lines = [SCEN_COLS.map(c => esc(c[0])).join(',')];
-  for (const s of [...caseRows(), ...scenRows()]) lines.push(SCEN_COLS.map(c => esc(c[1](s))).join(','));
+  const cols = [...lead, ...SCEN_COLS];
+  const lines = [cols.map(c => esc(c[0])).join(',')];
+  for (const s of rows) lines.push(cols.map(c => esc(c[1](s))).join(','));
   const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/csv' });
-  const a = el('a', { href: URL.createObjectURL(blob), download: 'kdp-scenarios.csv' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: filename });
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const exportCsv = () => downloadCsv('kdp-scenarios.csv', [...caseRows(), ...scenRows()]);
+// The three cases now, labelled with the Compare: preset they match, if any.
+function exportComparison() {
+  const t = COMPARE_TEMPLATES.find(templateActive);
+  downloadCsv('kdp-comparison.csv', caseRows(), [['Compare preset', () => t ? t.label : '']]);
+}
+// Every Compare: preset's three cases, built from the current defaults (the cases themselves don't change).
+function exportPresets() {
+  const rows = COMPARE_TEMPLATES.flatMap(t => templateCases(t).map((o, i) => {
+    const inp = { ...defaults, ...o };
+    return { preset: t.label, name: `Case ${i + 1}: ${t.name(o)}`, inp, r: compute(inp) };
+  }));
+  downloadCsv('kdp-compare-presets.csv', rows, [['Compare preset', s => s.preset]]);
 }
 
 /* ---------- charts ---------- */
@@ -2290,6 +2314,8 @@ window.runSpotChecks = runSpotChecks;
       { value: R('eb70Min'), label: '70% min', title: 'Lowest price that can earn the 70% eBook rate' },
       { value: R('eb70Max'), label: '70% max', title: 'Highest price that can earn the 70% eBook rate' } ] });
   $('exportCsv').addEventListener('click', exportCsv);
+  $('exportComparison').addEventListener('click', exportComparison);
+  $('exportPresets').addEventListener('click', exportPresets);
   document.querySelectorAll('i[data-fmt]').forEach(i => i.replaceWith(fmtIcon(i.dataset.fmt)));
   renderRules();
   initSectionToggles();
