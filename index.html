@@ -245,22 +245,22 @@
   .sum-wrap { overflow-x: auto; }
   .sum-wrap > * { min-width: 860px; }
   table.sum { border-collapse: separate; border-spacing: 10px 0; margin: 0 -10px; width: calc(100% + 20px); table-layout: fixed; font-variant-numeric: tabular-nums;
-    --hov-1: color-mix(in srgb, var(--text) 2.5%, var(--surface)); --hov-2: color-mix(in srgb, var(--text) 6%, var(--surface)); --gap-bg: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
+    --gap-bg: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
   table.sum col.c-sec { width: 22px; }
   table.sum col.c-label { width: 150px; }
   table.sum th, table.sum td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: right; }
   table.sum th.sec, table.sum tr.base-row > *, table.sum tr.head-row > th:not(.cc), table.sum thead tr:last-child > *:not(.cc), table.sum tr.gap > *:not(.cc), table.sum tbody tr:last-child > *:not(.cc) { border-bottom: 0; }
   /* The case cards */
-  table.sum .cc { background: var(--surface); border-left: 1px solid var(--border); border-right: 1px solid var(--border); transition: background-color .12s; }
+  table.sum .cc { --hov-1: color-mix(in srgb, var(--case) 5%, var(--surface)); --hov-2: color-mix(in srgb, var(--case) 12%, var(--surface)); background: var(--surface); border-left: 1px solid var(--border); border-right: 1px solid var(--border); transition: background-color .12s; }
   table.sum th.case { border-top: 3px solid var(--case); border-radius: 10px 10px 0 0; }
   table.sum tbody:last-child tr:last-child > .cc { border-radius: 0 0 10px 10px; }
   table.sum tr.gap > * { height: 10px; padding: 0; }
-  /* Hover: the cell under the pointer, then its row and its case's column, each a shade lighter. */
+  /* Hover: the cell under the pointer, then its row and its case's column, each a lighter tint of its case's colour. */
   table.sum tr.hov-row > .cc, table.sum[data-hcol="0"] .cc[data-col="0"], table.sum[data-hcol="1"] .cc[data-col="1"], table.sum[data-hcol="2"] .cc[data-col="2"] { background: var(--hov-1); }
   table.sum[data-hcol] .cc.hov, table.sum tr.hov-row > .cc.hov { background: var(--hov-2); }
   table.sum tr.gap > .cc { background: var(--gap-bg) !important; }
   table.sum th.rl { transition: background-color .12s; }
-  table.sum tr.hov-row > th.rl { background: color-mix(in srgb, var(--text) 3%, transparent); border-radius: 6px; }
+  table.sum tr.hov-row > th.rl { background: color-mix(in srgb, var(--hcase, var(--text)) 6%, transparent); border-radius: 6px; }
   /* Baseline strip above the case headings: the baseline's tag, or a button that shows on hover to make that case the baseline. */
   table.sum tr.base-row > td { padding: 0 2px 5px; vertical-align: bottom; }
   table.sum .base-tag, table.sum .base-set { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; line-height: 16px; border-radius: 99px; padding: 1px 8px; }
@@ -1155,14 +1155,15 @@ function buildSummaryHead() {
 /* Hover: the cell under the pointer is shaded a little, the rest of its row and its case's column even less. */
 function initSummaryHover(table) {
   const clear = () => {
-    delete table.dataset.hcol;
+    delete table.dataset.hcol; table.style.removeProperty('--hcase');
     table.querySelectorAll('.hov-row, .hov').forEach(n => n.classList.remove('hov-row', 'hov'));
   };
   table.addEventListener('pointerover', e => {
     const cell = e.target.closest('td, th'), tr = cell && cell.parentElement;
     if (!cell || !table.contains(cell) || tr.classList.contains('gap')) return;
     clear();
-    if (cell.dataset.col != null) table.dataset.hcol = cell.dataset.col;
+    // The row label takes the tint of the case being hovered.
+    if (cell.dataset.col != null) { table.dataset.hcol = cell.dataset.col; table.style.setProperty('--hcase', `var(${CASE_COLORS[cell.dataset.col]})`); }
     if (!tr.classList.contains('base-row')) tr.classList.add('hov-row');
     if (cell.classList.contains('cc')) cell.classList.add('hov');
   });
